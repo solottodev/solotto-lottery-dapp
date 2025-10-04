@@ -1,0 +1,53 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+// apps/backend/prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite" // Switch to PostgreSQL in deployment
+  url      = "file:./dev.db"
+}
+
+model User {
+  id             String          @id @default(uuid())
+  email          String          @unique
+  password       String
+  lotteryConfigs LotteryConfig[] // Backrelation
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+}
+
+model LotteryConfig {
+  id                  String       @id @default(uuid())
+  name                String
+  tokenMint           String
+  tokenDecimals       Int
+  snapshotStart       DateTime
+  snapshotEnd         DateTime
+  drawTime            DateTime?
+  tradePercentage     Float
+  status              ConfigStatus @default(PENDING)
+  minUsdLottoRequired Float        @default(50.0)
+  blacklist           Json         @default("[]") // ✅ JSON instead of String[]
+  createdById         String
+  createdBy           User         @relation(fields: [createdById], references: [id])
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+}
+
+enum ConfigStatus {
+  PENDING // Submitted but not validated yet
+  VALIDATED // Passed validation checks (e.g., token is SPL, dates valid)
+  FAILED // Failed validation (e.g., blacklisted token, invalid mint)
+  ACTIVE // In use for a current round
+  LOCKED // Frozen during snapshot/draw
+  COMPLETED // Finished round
+  CANCELED // Manually aborted
+}

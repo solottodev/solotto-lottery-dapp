@@ -1,0 +1,4 @@
+apps/frontend/.next/
+node_modules/
+.env
+*.log

@@ -1,0 +1,21 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  background-color: #050b1f;
+}
+
+.bg-grid-dark {
+  background-image: radial-gradient(#1f2937 1px, transparent 1px);
+  background-size: 32px 32px;
+  background-color: #0d1117;
+}
+
+.shadow-glow {
+  box-shadow: 0 0 8px rgba(0, 255, 255, 0.3), 0 0 16px rgba(0, 255, 255, 0.2);
+}
