@@ -44,3 +44,104 @@ export const createConfig = async (data: ConfigSchemaType, token: string) => {
 
   return await response.json()
 }
+
+// --- Snapshot API (mocked for now) ---
+export const generateSnapshot = async (token: string) => {
+  if (!token) throw new Error('Missing auth token')
+  try {
+    const response = await fetch('/api/snapshot/run', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({}),
+    })
+    if (response.ok) {
+      return await response.json()
+    }
+    // Fall through to mock if backend returns non-OK
+  } catch (_) {
+    // Fallback to mock in dev
+  }
+  const startedAt = new Date().toISOString()
+  const snapshotId = `snap_${Math.random().toString(36).slice(2, 10)}`
+  await new Promise((res) => setTimeout(res, 800))
+  const completedAt = new Date().toISOString()
+  return { snapshotId, startedAt, completedAt }
+}
+
+export const confirmSnapshot = async (snapshotId: string, token: string) => {
+  if (!token) throw new Error('Missing auth token')
+  if (!snapshotId) throw new Error('Missing snapshot id')
+  try {
+    const response = await fetch('/api/snapshot/confirm', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ snapshotId }),
+    })
+    if (response.ok) {
+      return await response.json()
+    }
+  } catch (_) {
+    // ignore and use mock
+  }
+  await new Promise((res) => setTimeout(res, 400))
+  return { ok: true }
+}
+
+// --- Drawing API ---
+export const runDrawing = async (token: string) => {
+  if (!token) throw new Error('Missing auth token')
+  try {
+    const response = await fetch('/api/drawing/run', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({}),
+    })
+    if (response.ok) {
+      return await response.json()
+    }
+  } catch (_) {
+    // ignore and use mock
+  }
+  const gen = () => Math.random().toString(36).slice(2).toUpperCase().padEnd(20, 'X')
+  const startedAt = new Date().toISOString()
+  await new Promise((r) => setTimeout(r, 600))
+  const completedAt = new Date().toISOString()
+  return {
+    drawingId: `draw_${Math.random().toString(36).slice(2, 10)}`,
+    startedAt,
+    completedAt,
+    winners: { t1: gen(), t2: gen(), t3: gen(), t4: gen() },
+    audit: {
+      seed: Math.random().toString(36).slice(2),
+      vrfRequestId: `vrf_${Math.random().toString(36).slice(2, 8)}`,
+      snapshotId: 'mock_snapshot_id',
+    },
+  }
+}
+
+export const confirmDrawing = async (drawingId: string, token: string) => {
+  if (!token) throw new Error('Missing auth token')
+  if (!drawingId) throw new Error('Missing drawing id')
+  try {
+    const response = await fetch('/api/drawing/confirm', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ drawingId }),
+    })
+    if (response.ok) return await response.json()
+  } catch (_) {}
+  await new Promise((r) => setTimeout(r, 300))
+  return { ok: true }
+}

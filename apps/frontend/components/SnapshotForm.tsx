@@ -1,58 +1,152 @@
-"use client";
+// SnapshotForm.tsx
+// Handles Snapshot module actions: run snapshot, view progress, confirm results
 
-import React from 'react'
-import { useModuleStore } from '@/hooks/useModuleStore'
-import { useAuthStore } from '@/hooks/useAuthStore'
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
+'use client'
+
+import React, { useCallback, useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Textarea } from '@/components/ui/textarea'
+import { useAuthStore } from '@/hooks/useAuthStore'
+import { useModuleStore } from '@/hooks/useModuleStore'
+import { confirmSnapshot, generateSnapshot } from '@/lib/api'
 
-export default function SnapshotForm() {
-  const controlSubmitted = useModuleStore((s) => s.controlSubmitted)
-  const jwt = useAuthStore((s) => s.jwt)
+export const SnapshotForm: React.FC = () => {
+  const { jwt } = useAuthStore()
+  const {
+    controlSubmitted,
+    participantCounts,
+    snapshotStatus,
+    setSnapshotStatus,
+    snapshotId,
+    setSnapshotId,
+    snapshotStartedAt,
+    setSnapshotStartedAt,
+    snapshotCompletedAt,
+    setSnapshotCompletedAt,
+    setDrawingEnabled,
+  } = useModuleStore()
 
-  const [notes, setNotes] = React.useState('')
-  const [submitting, setSubmitting] = React.useState(false)
-  const disabled = !jwt || !controlSubmitted || submitting
+  const [error, setError] = useState<string | null>(null)
 
-  const onStart = async () => {
-    try {
-      setSubmitting(true)
-      // Placeholder: POST to backend snapshot endpoint once available
-      // await startSnapshot({ notes }, jwt!)
-      alert('Snapshot started (stub).')
-    } finally {
-      setSubmitting(false)
+  const onRunSnapshot = useCallback(async () => {
+    if (!jwt) {
+      setError('Operator authentication required')
+      return
     }
-  }
+    if (!controlSubmitted) {
+      setError('Control configuration must be submitted first')
+      return
+    }
+    setError(null)
+    try {
+      setSnapshotStatus('running')
+      const res = await generateSnapshot(jwt)
+      setSnapshotId(res.snapshotId)
+      setSnapshotStartedAt(res.startedAt)
+      setSnapshotCompletedAt(res.completedAt)
+      setSnapshotStatus('completed')
+    } catch (e: any) {
+      console.error(e)
+      setError(e?.message || 'Failed to generate snapshot')
+      setSnapshotStatus('idle')
+    }
+  }, [jwt, controlSubmitted, setSnapshotStatus, setSnapshotId, setSnapshotStartedAt, setSnapshotCompletedAt])
+
+  const onConfirmSnapshot = useCallback(async () => {
+    if (!jwt) {
+      setError('Operator authentication required')
+      return
+    }
+    if (!snapshotId) return
+    setError(null)
+    try {
+      setSnapshotStatus('running')
+      await confirmSnapshot(snapshotId, jwt)
+      setSnapshotStatus('confirmed')
+      setDrawingEnabled(true)
+    } catch (e: any) {
+      console.error(e)
+      setError(e?.message || 'Failed to confirm snapshot')
+      setSnapshotStatus('completed')
+    }
+  }, [jwt, snapshotId, setSnapshotStatus, setDrawingEnabled])
+
+  const statusLabel =
+    snapshotStatus === 'idle'
+      ? 'Idle'
+      : snapshotStatus === 'running'
+      ? 'Running snapshot…'
+      : snapshotStatus === 'completed'
+      ? 'Completed — review and confirm'
+      : 'Confirmed — ready for drawing'
+
+  const canRun = snapshotStatus === 'idle' || snapshotStatus === 'completed'
+  const canConfirm = snapshotStatus === 'completed' && !!participantCounts
 
   return (
-    <Card className="w-full shadow-xl border-blue-600">
-      <CardHeader className="bg-blue-600 text-white">
-        <CardTitle>Snapshot Module</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4 mt-4">
-        {!controlSubmitted && (
-          <p className="text-sm text-yellow-400">
-            Control configuration is required before running a snapshot.
-          </p>
-        )}
-        <label className="block text-sm font-medium">Operator Notes (optional)</label>
-        <Textarea
-          placeholder="Add context or instructions"
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-        />
+    <section className="rounded-3xl border border-primary/20 bg-night-900/60 p-6 shadow-panel">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-slate-300">Snapshot Status</p>
+          <p className="mt-1 font-semibold text-primary">{statusLabel}</p>
+          <div className="mt-2 text-xs text-slate-400">
+            {snapshotStartedAt && <div>Started: {new Date(snapshotStartedAt).toLocaleString()}</div>}
+            {snapshotCompletedAt && <div>Completed: {new Date(snapshotCompletedAt).toLocaleString()}</div>}
+            {snapshotId && <div>ID: {snapshotId}</div>}
+          </div>
+        </div>
+        <div className="text-right">
+          {participantCounts ? (
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <div className="rounded-lg border border-primary/20 bg-night-900/60 p-2">
+                <div className="text-xs text-slate-400">Tier 1 (5%)</div>
+                <div className="text-primary font-semibold">{participantCounts.t1}</div>
+              </div>
+              <div className="rounded-lg border border-primary/20 bg-night-900/60 p-2">
+                <div className="text-xs text-slate-400">Tier 2 (15%)</div>
+                <div className="text-primary font-semibold">{participantCounts.t2}</div>
+              </div>
+              <div className="rounded-lg border border-primary/20 bg-night-900/60 p-2">
+                <div className="text-xs text-slate-400">Tier 3 (30%)</div>
+                <div className="text-primary font-semibold">{participantCounts.t3}</div>
+              </div>
+              <div className="rounded-lg border border-primary/20 bg-night-900/60 p-2">
+                <div className="text-xs text-slate-400">Tier 4 (50%)</div>
+                <div className="text-primary font-semibold">{participantCounts.t4}</div>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-slate-400">Tier counts will appear after Control submission.</p>
+          )}
+        </div>
+      </div>
+
+      {error && (
+        <div className="mt-4 rounded-lg border border-red-400/30 bg-red-500/10 p-3 text-red-300 text-sm">
+          {error}
+        </div>
+      )}
+
+      <div className="mt-6 flex flex-wrap gap-3">
         <Button
           type="button"
-          className="bg-blue-600 hover:bg-blue-700"
-          onClick={onStart}
-          disabled={disabled}
+          onClick={onRunSnapshot}
+          disabled={!controlSubmitted || !canRun}
+          className="rounded-lg bg-badge-gradient px-6 py-3 text-[16px] md:text-[17px] font-semibold text-white shadow-md disabled:opacity-60"
         >
-          {submitting ? 'Starting...' : 'Start Snapshot'}
+          {snapshotStatus === 'running' ? 'Running…' : 'Generate Snapshot'}
         </Button>
-      </CardContent>
-    </Card>
+
+        <Button
+          type="button"
+          onClick={onConfirmSnapshot}
+          disabled={!canConfirm}
+          className="rounded-lg border border-primary/30 bg-night-800 px-6 py-3 text-[16px] md:text-[17px] font-semibold text-primary shadow-md disabled:opacity-60"
+        >
+          Confirm Snapshot
+        </Button>
+      </div>
+    </section>
   )
 }
 
+export default SnapshotForm
