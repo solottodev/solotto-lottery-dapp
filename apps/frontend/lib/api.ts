@@ -1,24 +1,46 @@
-import { useAuthStore } from "@/hooks/useAuthStore";
+// apps/frontend/lib/api.ts
+// ✅ Wrapper around fetch for JWT-authenticated API calls
+// ✅ Exports createLotteryConfig used by ControlForm.tsx
 
-export async function fetchWithJwt<T>(
-  endpoint: string,
-  options: RequestInit = {}
-): Promise<T> {
-  const jwt = useAuthStore.getState().jwt;
+// api.ts
+// Handles all API requests from frontend to backend
 
-  const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}${endpoint}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: jwt ? `Bearer ${jwt}` : "",
-      ...(options.headers || {}),
-    },
-  });
+import { ConfigSchemaType } from '@/lib/zodSchemas'
 
-  if (!res.ok) {
-    const error = await res.json().catch(() => ({ error: "Unknown error" }));
-    throw new Error(error?.error || "API Error");
+export const createConfig = async (data: ConfigSchemaType, token: string) => {
+  if (!token) throw new Error('Missing auth token')
+
+  // Convert local datetime-local inputs to ISO UTC
+  const toIsoUtc = (v: string) => new Date(v).toISOString()
+
+  const payload = {
+    tokenMint: 'HJSnJaQv3u4ZyvPXiQPTyBsYJpggWsZvVH8yedjBpump',
+    tokenDecimals: 6,
+    snapshotStart: toIsoUtc(data.startDate),
+    snapshotEnd: toIsoUtc(data.endDate),
+    tradePercentage: data.tradeThresholdPercent,
+    infraAllocationPercent: data.infraAllocationPercent,
+    slippageTolerancePercent: data.slippageTolerancePercent ?? 0,
+    minUsdLottoRequired: 50,
+    blacklist: (data.blacklistedWallets || '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0),
   }
 
-  return res.json();
+  const response = await fetch('/api/control', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new Error(`Failed to submit config: ${errorText}`)
+  }
+
+  return await response.json()
 }

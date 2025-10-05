@@ -10,6 +10,24 @@ body {
   background-color: #050b1f;
 }
 
+/* Dynamic base font scaling for responsive readability */
+html {
+  /* Scales between ~16px on small screens to ~22px on very wide screens */
+  font-size: clamp(16px, 1.6vw, 22px);
+}
+
+html, body {
+  overflow-x: hidden;
+  overscroll-behavior-x: none;
+}
+
+/* 3x global UI scaling while preserving viewport width */
+.zoom-300 {
+  transform: scale(3);
+  transform-origin: top left;
+  width: calc(100% / 3);
+}
+
 .bg-grid-dark {
   background-image: radial-gradient(#1f2937 1px, transparent 1px);
   background-size: 32px 32px;
@@ -18,4 +36,12 @@ body {
 
 .shadow-glow {
   box-shadow: 0 0 8px rgba(0, 255, 255, 0.3), 0 0 16px rgba(0, 255, 255, 0.2);
+}
+
+/* Brand gradient title (matches main site style) */
+.brand-gradient {
+  background: linear-gradient(90deg, #8b5cf6, #34d399, #22d3ee);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }

@@ -3,7 +3,6 @@ import { z } from 'zod';
 
 // Aligned with Prisma model `LotteryConfig` in schema.prisma
 export const lotteryConfigSchema = z.object({
-  name: z.string().min(1, 'name is required'),
   tokenMint: z.string().min(1, 'tokenMint is required'),
   tokenDecimals: z.number().int().min(0).max(12),
   snapshotStart: z.string().datetime({ message: 'snapshotStart must be a valid datetime' }),
@@ -11,5 +10,7 @@ export const lotteryConfigSchema = z.object({
   drawTime: z.string().datetime().optional(),
   tradePercentage: z.number().min(0).max(100),
   minUsdLottoRequired: z.number().min(0, 'Minimum USD holding must be non-negative'),
+  infraAllocationPercent: z.number().min(0).max(100),
+  slippageTolerancePercent: z.number().min(0).max(100),
   blacklist: z.array(z.string().min(1)).optional().default([]),
 });

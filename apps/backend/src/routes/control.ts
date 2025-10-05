@@ -9,6 +9,30 @@ import type { ZodIssue } from 'zod';
 
 const router = express.Router();
 
+// Basic base58 and length check for Solana addresses
+const base58Regex = /^[1-9A-HJ-NP-Za-km-z]+$/;
+function isLikelySolAddress(s: string) {
+  const len = s?.length ?? 0;
+  return typeof s === 'string' && base58Regex.test(s) && len >= 32 && len <= 44;
+}
+
+function parseHardBlacklist(): string[] {
+  const raw = process.env.HARD_BLACKLIST;
+  if (!raw) return [];
+  try {
+    // Support JSON array or comma-separated list
+    const parsed = raw.trim().startsWith('[') ? (JSON.parse(raw) as unknown) : (raw.split(',') as unknown);
+    const list = Array.isArray(parsed) ? parsed : [];
+    const cleaned = list
+      .map((v) => (typeof v === 'string' ? v.trim() : ''))
+      .filter((v) => v.length > 0);
+    return Array.from(new Set(cleaned));
+  } catch (e) {
+    console.error('Invalid HARD_BLACKLIST env var. Expect JSON array or comma-separated string.', e);
+    return [];
+  }
+}
+
 router.post('/', requireJwt, async (req, res) => {
   try {
     const parsed = lotteryConfigSchema.safeParse(req.body);
@@ -24,7 +48,6 @@ router.post('/', requireJwt, async (req, res) => {
     }
 
     const {
-      name,
       tokenMint,
       tokenDecimals,
       snapshotStart,
@@ -32,6 +55,8 @@ router.post('/', requireJwt, async (req, res) => {
       drawTime,
       tradePercentage,
       minUsdLottoRequired,
+      infraAllocationPercent,
+      slippageTolerancePercent,
       blacklist,
     } = parsed.data;
 
@@ -40,9 +65,29 @@ router.post('/', requireJwt, async (req, res) => {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
+    // Validate submitted blacklist entries (basic check)
+    const submitted = Array.isArray(blacklist) ? blacklist : [];
+    const invalidSubmitted = submitted.filter((a) => !isLikelySolAddress(a));
+    if (invalidSubmitted.length > 0) {
+      return res.status(400).json({
+        error: 'Invalid blacklist entries',
+        addresses: invalidSubmitted,
+      });
+    }
+
+    // Always-enforced hard blacklist from env
+    const hard = parseHardBlacklist();
+    const invalidHard = hard.filter((a) => !isLikelySolAddress(a));
+    if (invalidHard.length > 0) {
+      console.warn('HARD_BLACKLIST contains invalid entries; they will be ignored:', invalidHard);
+    }
+    const effectiveHard = hard.filter((a) => isLikelySolAddress(a));
+
+    // Union submitted + hardcoded, unique
+    const combined = Array.from(new Set<string>([...submitted, ...effectiveHard]));
+
     const config = await prisma.lotteryConfig.create({
       data: {
-        name,
         tokenMint,
         tokenDecimals,
         snapshotStart: new Date(snapshotStart),
@@ -50,13 +95,15 @@ router.post('/', requireJwt, async (req, res) => {
         ...(drawTime ? { drawTime: new Date(drawTime) } : {}),
         tradePercentage,
         minUsdLottoRequired,
-        blacklist: Array.isArray(blacklist) ? blacklist : [],
+        infraAllocationPercent,
+        slippageTolerancePercent,
+        blacklist: combined,
         status: ConfigStatus.PENDING,
         createdById: userId,
       },
     });
 
-    return res.status(201).json({ message: 'Config saved', config });
+    return res.status(201).json({ message: 'Config saved', config, effectiveBlacklist: combined });
   } catch (err) {
     console.error('Error in POST /control:', err);
     return res.status(500).json({ error: 'Internal server error' });

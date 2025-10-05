@@ -26,7 +26,6 @@ model User {
 
 model LotteryConfig {
   id                  String       @id @default(uuid())
-  name                String
   tokenMint           String
   tokenDecimals       Int
   snapshotStart       DateTime
@@ -35,6 +34,8 @@ model LotteryConfig {
   tradePercentage     Float
   status              ConfigStatus @default(PENDING)
   minUsdLottoRequired Float        @default(50.0)
+  infraAllocationPercent  Float        @default(70.0)
+  slippageTolerancePercent Float       @default(0.5)
   blacklist           Json         @default("[]") // ✅ JSON instead of String[]
   createdById         String
   createdBy           User         @relation(fields: [createdById], references: [id])

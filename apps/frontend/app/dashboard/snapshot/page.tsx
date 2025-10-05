@@ -1,10 +1,17 @@
+"use client";
+
+import SnapshotForm from '@/components/SnapshotForm'
+import { useModuleStore } from '@/hooks/useModuleStore'
+
 export default function SnapshotPage() {
+  const controlSubmitted = useModuleStore((s) => s.controlSubmitted)
+
   return (
     <section className="space-y-4">
-      <h2 className="text-2xl font-semibold">Snapshot Module</h2>
-      <p className="text-gray-300">
-        Capture on-chain state checkpoints for analytics and rollback protection.
-      </p>
+      <SnapshotForm />
+      {!controlSubmitted && (
+        <p className="text-sm text-gray-400">Waiting for Control configuration…</p>
+      )}
     </section>
-  );
+  )
 }

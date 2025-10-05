@@ -1,7 +1,4 @@
 import { ModuleGrid } from "@/components/ModuleGrid";
-import { WalletConnect } from "@/components/WalletConnect";
-import { WalletPanel } from "@/components/WalletPanel";
-import OperatorLogin from "@/components/OperatorLogin"; // ✅ Already present
 
 const statusIndicators = [
   { label: "Backend", value: "http://localhost:8093" },
@@ -21,45 +18,7 @@ const workflow = ["Control", "Snapshot", "Drawing", "Harvest", "Distribution", "
 export default function HomePage() {
   return (
     <>
-      <div className="sticky top-0 z-40 w-full bg-gradient-to-r from-[#ff6b6b] via-[#ffa45b] to-[#ffd93d] py-2 text-center text-[0.7rem] font-semibold uppercase tracking-[0.35em] text-slate-900 shadow-[0_8px_30px_rgba(0,0,0,0.35)]">
-        Secure operator environment - Wallet authentication required - Mainnet ready
-      </div>
-
-      <main className="relative mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-12 px-6 pb-24 pt-12 text-white md:px-12 bg-grid-dark rounded-3xl border border-white/5">
-        <WalletPanel />
-
-        <header className="space-y-6 text-center">
-          <div className="space-y-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.6em] text-primary/80">Solotto Pro</p>
-            <h1 className="text-4xl font-semibold tracking-tight text-primary md:text-6xl">SOLOTTO</h1>
-            <p className="mx-auto max-w-2xl text-sm text-slate-300 md:text-base">
-              Decentralized lottery - built on Solana. Command every phase from control to distribution with verifiable
-              automation.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap justify-center gap-4 text-sm text-slate-200">
-            {statusIndicators.map((indicator) => (
-              <span
-                key={indicator.label}
-                className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-night-900/80 px-5 py-2 shadow-[0_12px_30px_rgba(10,30,70,0.45)] backdrop-blur"
-              >
-                <span className="h-2 w-2 rounded-full bg-primary" />
-                <span className="font-medium text-primary">{indicator.label}:</span>
-                <span className="text-slate-300">{indicator.value}</span>
-              </span>
-            ))}
-          </div>
-
-          <div className="flex items-center justify-center">
-            <WalletConnect />
-          </div>
-
-          {/* ✅ NEW: Operator Authentication Button */}
-          <div className="mt-4 flex justify-center">
-            <OperatorLogin />
-          </div>
-        </header>
+      <main className="relative mx-auto flex min-h-screen w-full max-w-[90vw] 2xl:max-w-[1920px] flex-col gap-10 px-8 pb-32 pt-14 text-white md:px-14 bg-grid-dark rounded-3xl border border-white/5">
 
         <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {stats.map((item) => (
@@ -77,14 +36,9 @@ export default function HomePage() {
         <section className="rounded-3xl border border-primary/25 bg-panel-gradient p-10 shadow-panel backdrop-blur-xl">
           <header className="space-y-2 text-center">
             <p className="text-sm font-semibold uppercase tracking-[0.35em] text-primary/70">Lottery execution workflow</p>
-            <h2 className="text-3xl font-bold text-white">Command modules wired for production</h2>
-            <p className="mx-auto max-w-3xl text-sm text-slate-300 md:text-base">
-              Every stage emits auditable logs, supports multi-sig overrides, and enforces policy checks before funds move
-              on-chain.
-            </p>
           </header>
 
-          <div className="mt-8 space-y-6">
+          <div className="mt-4 space-y-4">
             <div className="flex flex-wrap items-center justify-center gap-3 text-xs font-semibold tracking-wide text-primary">
               {workflow.map((step, index) => (
                 <div key={step} className="flex items-center">
@@ -103,10 +57,7 @@ export default function HomePage() {
               />
             </div>
 
-            <div className="rounded-2xl border border-primary/30 bg-gradient-to-r from-primary/20 via-transparent to-accent/10 px-6 py-4 text-sm text-cyan-100 shadow-[0_25px_60px_rgba(7,35,85,0.5)]">
-              <span className="font-semibold text-primary">System status:</span> Ready for lottery execution. All security checks
-              passed. Multi-sig authentication required for critical actions.
-            </div>
+            {/* System status banner removed per request */}
           </div>
         </section>
 
