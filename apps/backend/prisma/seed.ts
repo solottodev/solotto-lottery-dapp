@@ -1,64 +1,70 @@
-import { PrismaClient, RoundStatus } from '@prisma/client';
-import bcrypt from 'bcrypt';
+import { PrismaClient } from '@prisma/client'
 
-const prisma = new PrismaClient();
+const prisma = new PrismaClient()
 
 async function main() {
-  const passwordHash = await bcrypt.hash('password123', 10);
+  // Create 3 demo rounds with simple winners/payouts
+  const now = Date.now()
+  const rounds = [] as any[]
+  for (let i = 0; i < 3; i++) {
+    const start = new Date(now - (14 - i * 7) * 24 * 60 * 60 * 1000)
+    const end = new Date(now - (7 - i * 7) * 24 * 60 * 60 * 1000)
+    const drawing = new Date(end.getTime() + 60 * 60 * 1000)
+    const distribution = new Date(drawing.getTime() + 60 * 60 * 1000)
+    const prize = 80 + i * 5 + 9.215
+    const winners = {
+      t1: `WINNER_T1_${i}_${Math.random().toString(36).slice(2, 10)}`,
+      t2: `WINNER_T2_${i}_${Math.random().toString(36).slice(2, 10)}`,
+      t3: `WINNER_T3_${i}_${Math.random().toString(36).slice(2, 10)}`,
+      t4: `WINNER_T4_${i}_${Math.random().toString(36).slice(2, 10)}`,
+    }
+    const payouts = { t1: prize * 0.4, t2: prize * 0.25, t3: prize * 0.2, t4: prize * 0.15 }
 
-  // Create Users
-  await prisma.user.createMany({
-    data: [
-      { email: 'alice@example.com', password: passwordHash },
-      { email: 'bob@example.com', password: passwordHash },
-      { email: 'carol@example.com', password: passwordHash },
-    ],
-  });
-
-  // Create Lottery Rounds
-  const round1 = await prisma.lotteryRound.create({
-    data: {
-      roundNumber: 1,
-      startTime: new Date(Date.now() - 2 * 86400000),
-      endTime: new Date(Date.now() - 1 * 86400000),
-      status: RoundStatus.COMPLETED,
-      winningWallet: 'So1aNAwinnErWallet1111111111111111111111',
-    },
-  });
-
-  const round2 = await prisma.lotteryRound.create({
-    data: {
-      roundNumber: 2,
-      startTime: new Date(),
-      endTime: new Date(Date.now() + 86400000),
-      status: RoundStatus.PENDING,
-    },
-  });
-
-  // Create Lottery Entries
-  const mockWallets = [
-    'So1aNA1111111111111111111111111111111111',
-    'So1aNA2222222222222222222222222222222222',
-    'So1aNA3333333333333333333333333333333333',
-    'So1aNA4444444444444444444444444444444444',
-    'So1aNA5555555555555555555555555555555555',
-  ];
-
-  for (const wallet of mockWallets) {
-    await prisma.lotteryEntry.create({
-      data: { walletAddress: wallet, lotteryRoundId: round1.id },
-    });
-    await prisma.lotteryEntry.create({
-      data: { walletAddress: wallet, lotteryRoundId: round2.id },
-    });
+    const r = await prisma.round.create({
+      data: {
+        startDate: start,
+        endDate: end,
+        drawingDate: drawing,
+        distributionDate: distribution,
+        prizePoolSol: Number(prize.toFixed(6)),
+        prizeDistributionPercent: 70,
+        prizeSourceWallet: `SeedWallet_${i}`,
+        prizeSourceBalanceSol: Number((prize / 0.7).toFixed(6)),
+        totalParticipants: 2940 + i * 100,
+        eligibleParticipants: 2000 + i * 100,
+        tierWinners: winners,
+        tierPayouts: payouts,
+      },
+    })
+    rounds.push(r)
   }
 
-  console.log('✅ Seed complete');
+  // Create ~50 demo participants for the latest round
+  const latest = rounds[0]
+  const wallets = Array.from({ length: 50 }).map((_, idx) =>
+    `DemoWallet_${idx}_${Math.random().toString(36).slice(2, 10)}`
+  )
+  for (let i = 0; i < wallets.length; i++) {
+    await prisma.participant.create({
+      data: {
+        roundId: latest.id,
+        wallet: wallets[i],
+        tokenBalance: Math.round(Math.random() * 1000) / 10,
+        tier: [1, 2, 3, 4][Math.floor(Math.random() * 4)],
+        eligibilityScore: Math.round(Math.random() * 100) / 10,
+        isWinner: Math.random() < 0.08,
+      },
+    })
+  }
+
+  console.log('✅ Seed complete')
 }
 
 main()
   .catch((e) => {
-    console.error(e);
-    process.exit(1);
+    console.error(e)
+    process.exit(1)
   })
-  .finally(() => prisma.$disconnect());
+  .finally(async () => {
+    await prisma.$disconnect()
+  })

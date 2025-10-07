@@ -11,8 +11,8 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite" // Switch to PostgreSQL in deployment
-  url      = "file:./dev.db"
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model User {
@@ -25,22 +25,22 @@ model User {
 }
 
 model LotteryConfig {
-  id                  String       @id @default(uuid())
-  tokenMint           String
-  tokenDecimals       Int
-  snapshotStart       DateTime
-  snapshotEnd         DateTime
-  drawTime            DateTime?
-  tradePercentage     Float
-  status              ConfigStatus @default(PENDING)
-  minUsdLottoRequired Float        @default(50.0)
-  infraAllocationPercent  Float        @default(70.0)
-  slippageTolerancePercent Float       @default(0.5)
-  blacklist           Json         @default("[]") // ✅ JSON instead of String[]
-  createdById         String
-  createdBy           User         @relation(fields: [createdById], references: [id])
-  createdAt           DateTime     @default(now())
-  updatedAt           DateTime     @updatedAt
+  id                       String       @id @default(uuid())
+  tokenMint                String
+  tokenDecimals            Int
+  snapshotStart            DateTime
+  snapshotEnd              DateTime
+  drawTime                 DateTime?
+  tradePercentage          Float
+  status                   ConfigStatus @default(PENDING)
+  minUsdLottoRequired      Float        @default(50.0)
+  prizeDistributionPercent Float        @default(70.0)
+  slippageTolerancePercent Float        @default(0.5)
+  blacklist                Json         @default("[]") // ✅ JSON instead of String[]
+  createdById              String
+  createdBy                User         @relation(fields: [createdById], references: [id])
+  createdAt                DateTime     @default(now())
+  updatedAt                DateTime     @updatedAt
 }
 
 enum ConfigStatus {
@@ -51,4 +51,83 @@ enum ConfigStatus {
   LOCKED // Frozen during snapshot/draw
   COMPLETED // Finished round
   CANCELED // Manually aborted
+}
+
+model Round {
+  id                       String        @id @default(uuid())
+  startDate                DateTime
+  endDate                  DateTime
+  drawingDate              DateTime?
+  distributionDate         DateTime?
+  prizePoolSol             Float
+  prizeDistributionPercent Float         @default(70.0)
+  prizeSourceWallet        String?
+  prizeSourceBalanceSol    Float?
+  totalParticipants        Int           @default(0)
+  eligibleParticipants     Int           @default(0)
+  tierWinners              Json // { t1, t2, t3, t4 }
+  tierPayouts              Json // { t1, t2, t3, t4 }
+  // Distribution audit fields
+  distributionTxSignatures Json?         @default("[]") // string[]
+  distributionAtaAddresses Json?         @default("{}") // { t1, t2, t3, t4 }
+  swapToLotto              Boolean       @default(false)
+  swapRouteId              String?
+  swapSlippage             Float?
+  createdAt                DateTime      @default(now())
+  participants             Participant[]
+  snapshots                Snapshot[]
+  drawings                 Drawing[]
+}
+
+model Participant {
+  id               String   @id @default(uuid())
+  roundId          String
+  wallet           String
+  tokenBalance     Float?
+  tier             Int?
+  eligibilityScore Float?
+  isWinner         Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  round            Round    @relation(fields: [roundId], references: [id], onDelete: Cascade)
+
+  @@index([wallet])
+  @@index([createdAt])
+}
+
+enum SnapshotStatus {
+  IDLE
+  RUNNING
+  COMPLETED
+  CONFIRMED
+}
+
+model Snapshot {
+  id          String         @id @default(uuid())
+  roundId     String
+  status      SnapshotStatus @default(IDLE)
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime       @default(now())
+  round       Round          @relation(fields: [roundId], references: [id], onDelete: Cascade)
+}
+
+enum DrawingStatus {
+  IDLE
+  RUNNING
+  COMPLETED
+  CONFIRMED
+}
+
+model Drawing {
+  id           String        @id @default(uuid())
+  roundId      String
+  status       DrawingStatus @default(IDLE)
+  startedAt    DateTime?
+  completedAt  DateTime?
+  seed         String?
+  vrfRequestId String?
+  blockhash    String?
+  slot         Int?
+  createdAt    DateTime      @default(now())
+  round        Round         @relation(fields: [roundId], references: [id], onDelete: Cascade)
 }

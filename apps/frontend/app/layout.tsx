@@ -25,10 +25,10 @@ export default function RootLayout({ children }: RootLayoutProps) {
           <div className="absolute bottom-[-10rem] right-[-8rem] h-[32rem] w-[32rem] rounded-full bg-primary/10 blur-[18rem]" />
           <div className="absolute left-[-8rem] top-1/2 h-[26rem] w-[26rem] -translate-y-1/2 rounded-full bg-indigo/20 blur-[18rem]" />
         </div>
-        <div className="relative flex min-h-screen flex-col overflow-x-hidden pt-[28rem]">
+        <div className="relative flex min-h-screen flex-col overflow-x-hidden pt-40 md:pt-48 lg:pt-52">
           <Providers>
             <SiteHeader />
-            <div className="zoom-300">{children}</div>
+            <div>{children}</div>
           </Providers>
         </div>
       </body>

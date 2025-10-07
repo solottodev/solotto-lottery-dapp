@@ -55,9 +55,11 @@ router.post('/', requireJwt, async (req, res) => {
       drawTime,
       tradePercentage,
       minUsdLottoRequired,
-      infraAllocationPercent,
+      prizeDistributionPercent,
       slippageTolerancePercent,
       blacklist,
+      prizeSourceWallet,
+      prizeSourceBalanceSol,
     } = parsed.data;
 
     const userId = (req as any)?.user?.id as string | undefined;
@@ -95,7 +97,7 @@ router.post('/', requireJwt, async (req, res) => {
         ...(drawTime ? { drawTime: new Date(drawTime) } : {}),
         tradePercentage,
         minUsdLottoRequired,
-        infraAllocationPercent,
+        prizeDistributionPercent,
         slippageTolerancePercent,
         blacklist: combined,
         status: ConfigStatus.PENDING,
@@ -103,7 +105,26 @@ router.post('/', requireJwt, async (req, res) => {
       },
     });
 
-    return res.status(201).json({ message: 'Config saved', config, effectiveBlacklist: combined });
+    // Create a new Round linked to this control window
+    const ratio = Math.max(0, Math.min(100, prizeDistributionPercent)) / 100
+    const prizePoolSolRaw = prizeSourceBalanceSol * ratio
+    const prizePoolSol = Number(prizePoolSolRaw.toFixed(6))
+    const round = await prisma.round.create({
+      data: {
+        startDate: new Date(snapshotStart),
+        endDate: new Date(snapshotEnd),
+        prizePoolSol,
+        prizeDistributionPercent,
+        prizeSourceWallet,
+        prizeSourceBalanceSol,
+        totalParticipants: 0,
+        eligibleParticipants: 0,
+        tierWinners: {},
+        tierPayouts: {},
+      },
+    })
+
+    return res.status(201).json({ message: 'Config saved', config, effectiveBlacklist: combined, roundId: round.id, prizePoolSol });
   } catch (err) {
     console.error('Error in POST /control:', err);
     return res.status(500).json({ error: 'Internal server error' });

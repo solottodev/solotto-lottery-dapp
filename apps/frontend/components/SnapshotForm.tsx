@@ -38,8 +38,13 @@ export const SnapshotForm: React.FC = () => {
     }
     setError(null)
     try {
+      const state = useModuleStore.getState()
+      if (!state.roundId) {
+        setError('Round not initialized; submit Control configuration first.')
+        return
+      }
       setSnapshotStatus('running')
-      const res = await generateSnapshot(jwt)
+      const res = await generateSnapshot(jwt, state.roundId)
       setSnapshotId(res.snapshotId)
       setSnapshotStartedAt(res.startedAt)
       setSnapshotCompletedAt(res.completedAt)
@@ -83,7 +88,7 @@ export const SnapshotForm: React.FC = () => {
   const canConfirm = snapshotStatus === 'completed' && !!participantCounts
 
   return (
-    <section className="rounded-3xl border border-primary/20 bg-night-900/60 p-6 shadow-panel">
+    <section className="rounded-3xl border border-primary/20 bg-night-900/60 p-5 shadow-panel">
       <div className="flex items-center justify-between">
         <div>
           <p className="text-slate-300">Snapshot Status</p>
@@ -126,12 +131,12 @@ export const SnapshotForm: React.FC = () => {
         </div>
       )}
 
-      <div className="mt-6 flex flex-wrap gap-3">
+      <div className="mt-4 flex flex-wrap gap-2">
         <Button
           type="button"
           onClick={onRunSnapshot}
           disabled={!controlSubmitted || !canRun}
-          className="rounded-lg bg-badge-gradient px-6 py-3 text-[16px] md:text-[17px] font-semibold text-white shadow-md disabled:opacity-60"
+          className="rounded-lg bg-badge-gradient px-4 py-2 text-sm font-semibold text-white shadow-md disabled:opacity-60"
         >
           {snapshotStatus === 'running' ? 'Running…' : 'Generate Snapshot'}
         </Button>
@@ -140,7 +145,7 @@ export const SnapshotForm: React.FC = () => {
           type="button"
           onClick={onConfirmSnapshot}
           disabled={!canConfirm}
-          className="rounded-lg border border-primary/30 bg-night-800 px-6 py-3 text-[16px] md:text-[17px] font-semibold text-primary shadow-md disabled:opacity-60"
+          className="rounded-lg border border-primary/30 bg-night-800 px-4 py-2 text-sm font-semibold text-primary shadow-md disabled:opacity-60"
         >
           Confirm Snapshot
         </Button>

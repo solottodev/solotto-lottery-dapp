@@ -9,12 +9,29 @@ import { useModuleStore } from '@/hooks/useModuleStore'
 import { useAuthStore } from '@/hooks/useAuthStore'
 import { confirmDrawing, runDrawing } from '@/lib/api'
 
+const shorten = (addr?: string | null) => {
+  if (!addr) return '—'
+  if (addr.length <= 10) return addr
+  return `${addr.slice(0, 4)}…${addr.slice(-4)}`
+}
+
 const TierCard: React.FC<{ title: string; value: string | null }> = ({ title, value }) => (
-  <div className="rounded-xl border border-primary/25 bg-night-900/70 p-5">
+  <div className="relative rounded-xl border border-primary/25 bg-night-900/70 p-4">
     <div className="text-sm tracking-wide text-slate-300">{title}</div>
-    <div className="mt-2 text-xl font-semibold text-primary break-all">
-      {value || '—'}
+    <div className="mt-2 text-xl font-semibold text-primary break-all pr-7">
+      {shorten(value)}
     </div>
+    {value && (
+      <button
+        aria-label="Copy address"
+        title="Copy full address"
+        className="absolute right-3 top-3 text-primary/70 hover:text-primary"
+        onClick={() => navigator.clipboard?.writeText(value!)}
+      >
+        {/* simple copy icon */}
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4"><path d="M16 1H4c-1.1 0-2 .9-2 2v12h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+      </button>
+    )}
   </div>
 )
 
@@ -49,9 +66,14 @@ export const DrawingForm: React.FC = () => {
       return
     }
     try {
+      const state = useModuleStore.getState()
+      if (!state.roundId) {
+        setError('Round not initialized; submit Control configuration first.')
+        return
+      }
       setRunning(true)
       setDrawingStatus('running')
-      const res = await runDrawing(jwt)
+      const res = await runDrawing(jwt, state.roundId)
       const w = res?.winners || {}
       setWinners({
         t1: w.t1 ?? winners.t1,
@@ -131,6 +153,12 @@ export const DrawingForm: React.FC = () => {
           {audit?.seed && <div>Seed: {audit.seed}</div>}
           {audit?.vrfRequestId && <div>VRF: {audit.vrfRequestId}</div>}
           {audit?.snapshotId && <div>Snapshot: {audit.snapshotId}</div>}
+          {/* Additional audit fields for transparency (optional) */}
+          {audit && (audit as any).blockhash && <div>Blockhash: {(audit as any).blockhash}</div>}
+          {audit && (audit as any).slot && <div>Slot: {(audit as any).slot}</div>}
+          {audit && Array.isArray((audit as any).txSignatures) && (
+            <div>Tx: {((audit as any).txSignatures as string[]).join(', ')}</div>
+          )}
         </div>
       </div>
       <div className="mb-4 text-sm text-slate-400">{info}</div>
@@ -141,19 +169,19 @@ export const DrawingForm: React.FC = () => {
         <TierCard title="TIER 4 WINNER" value={winners.t4} />
       </div>
 
-      <div className="mt-6 flex gap-3">
+      <div className="mt-4 flex gap-2">
         <Button
           type="button"
           disabled={!canSelect || running}
           onClick={handleSelectWinners}
-          className="rounded-lg bg-badge-gradient px-6 py-3 text-[16px] md:text-[17px] font-semibold text-white shadow-md disabled:opacity-60"
+          className="rounded-lg bg-badge-gradient px-4 py-2 text-sm font-semibold text-white shadow-md disabled:opacity-60"
         >
           {running ? 'Selecting…' : 'Select Winners'}
         </Button>
         <Button
           type="button"
           onClick={handleReset}
-          className="rounded-lg border border-primary/30 bg-night-800 px-6 py-3 text-[16px] md:text-[17px] font-semibold text-primary shadow-md"
+          className="rounded-lg border border-primary/30 bg-night-800 px-4 py-2 text-sm font-semibold text-primary shadow-md"
         >
           Reset Winners
         </Button>
@@ -161,7 +189,7 @@ export const DrawingForm: React.FC = () => {
           type="button"
           onClick={handleConfirm}
           disabled={drawingStatus !== 'completed'}
-          className="rounded-lg border border-primary/30 bg-night-800 px-6 py-3 text-[16px] md:text-[17px] font-semibold text-primary shadow-md disabled:opacity-60"
+          className="rounded-lg border border-primary/30 bg-night-800 px-4 py-2 text-sm font-semibold text-primary shadow-md disabled:opacity-60"
         >
           Confirm Drawing
         </Button>
@@ -187,7 +215,7 @@ export const DrawingForm: React.FC = () => {
             a.click()
             URL.revokeObjectURL(url)
           }}
-          className="rounded-lg border border-primary/30 bg-night-800 px-6 py-3 text-[16px] md:text-[17px] font-semibold text-primary shadow-md"
+          className="rounded-lg border border-primary/30 bg-night-800 px-4 py-2 text-sm font-semibold text-primary shadow-md"
         >
           Export CSV
         </Button>

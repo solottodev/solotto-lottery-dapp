@@ -1,17 +1,11 @@
 import { NextRequest } from 'next/server'
 
-export async function POST(_req: NextRequest) {
-  const startedAt = new Date().toISOString()
-  await new Promise((r) => setTimeout(r, 300))
-  const completedAt = new Date().toISOString()
-  const payload = {
-    snapshotId: `snap_${Math.random().toString(36).slice(2, 10)}`,
-    startedAt,
-    completedAt,
-  }
-  return new Response(JSON.stringify(payload), {
-    status: 200,
-    headers: { 'Content-Type': 'application/json' },
-  })
+export async function POST(req: NextRequest) {
+  const backend = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000'
+  const url = `${backend.replace(/\/$/, '')}/api/v1/snapshot/run`
+  const auth = req.headers.get('authorization')
+  const body = await req.text()
+  const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(auth ? { Authorization: auth } : {}) }, body })
+  const text = await res.text()
+  return new Response(text, { status: res.status, headers: { 'Content-Type': res.headers.get('content-type') || 'application/json' } })
 }
-

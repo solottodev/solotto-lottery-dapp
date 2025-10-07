@@ -1,0 +1,20 @@
+version: '3.8'
+services:
+  postgres:
+    image: postgres:16
+    container_name: solotto-pg
+    restart: unless-stopped
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_DB: solotto
+    volumes:
+      - ./docker/init-roles.sql:/docker-entrypoint-initdb.d/10-init-roles.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d solotto"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+

@@ -7,7 +7,10 @@
 
 import { ConfigSchemaType } from '@/lib/zodSchemas'
 
-export const createConfig = async (data: ConfigSchemaType, token: string) => {
+export const createConfig = async (
+  data: ConfigSchemaType & { prizeDistributionPercent: number; prizeSourceWallet: string; prizeSourceBalanceSol: number },
+  token: string
+) => {
   if (!token) throw new Error('Missing auth token')
 
   // Convert local datetime-local inputs to ISO UTC
@@ -19,13 +22,15 @@ export const createConfig = async (data: ConfigSchemaType, token: string) => {
     snapshotStart: toIsoUtc(data.startDate),
     snapshotEnd: toIsoUtc(data.endDate),
     tradePercentage: data.tradeThresholdPercent,
-    infraAllocationPercent: data.infraAllocationPercent,
+    prizeDistributionPercent: data.prizeDistributionPercent,
     slippageTolerancePercent: data.slippageTolerancePercent ?? 0,
     minUsdLottoRequired: 50,
     blacklist: (data.blacklistedWallets || '')
       .split(',')
       .map((s) => s.trim())
       .filter((s) => s.length > 0),
+    prizeSourceWallet: data.prizeSourceWallet,
+    prizeSourceBalanceSol: data.prizeSourceBalanceSol,
   }
 
   const response = await fetch('/api/control', {
@@ -46,29 +51,18 @@ export const createConfig = async (data: ConfigSchemaType, token: string) => {
 }
 
 // --- Snapshot API (mocked for now) ---
-export const generateSnapshot = async (token: string) => {
+export const generateSnapshot = async (token: string, roundId: string) => {
   if (!token) throw new Error('Missing auth token')
-  try {
-    const response = await fetch('/api/snapshot/run', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({}),
-    })
-    if (response.ok) {
-      return await response.json()
-    }
-    // Fall through to mock if backend returns non-OK
-  } catch (_) {
-    // Fallback to mock in dev
-  }
-  const startedAt = new Date().toISOString()
-  const snapshotId = `snap_${Math.random().toString(36).slice(2, 10)}`
-  await new Promise((res) => setTimeout(res, 800))
-  const completedAt = new Date().toISOString()
-  return { snapshotId, startedAt, completedAt }
+  const response = await fetch('/api/snapshot/run', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ roundId }),
+  })
+  if (!response.ok) throw new Error(await response.text())
+  return await response.json()
 }
 
 export const confirmSnapshot = async (snapshotId: string, token: string) => {
@@ -94,38 +88,18 @@ export const confirmSnapshot = async (snapshotId: string, token: string) => {
 }
 
 // --- Drawing API ---
-export const runDrawing = async (token: string) => {
+export const runDrawing = async (token: string, roundId: string) => {
   if (!token) throw new Error('Missing auth token')
-  try {
-    const response = await fetch('/api/drawing/run', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({}),
-    })
-    if (response.ok) {
-      return await response.json()
-    }
-  } catch (_) {
-    // ignore and use mock
-  }
-  const gen = () => Math.random().toString(36).slice(2).toUpperCase().padEnd(20, 'X')
-  const startedAt = new Date().toISOString()
-  await new Promise((r) => setTimeout(r, 600))
-  const completedAt = new Date().toISOString()
-  return {
-    drawingId: `draw_${Math.random().toString(36).slice(2, 10)}`,
-    startedAt,
-    completedAt,
-    winners: { t1: gen(), t2: gen(), t3: gen(), t4: gen() },
-    audit: {
-      seed: Math.random().toString(36).slice(2),
-      vrfRequestId: `vrf_${Math.random().toString(36).slice(2, 8)}`,
-      snapshotId: 'mock_snapshot_id',
+  const response = await fetch('/api/drawing/run', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
     },
-  }
+    body: JSON.stringify({ roundId }),
+  })
+  if (!response.ok) throw new Error(await response.text())
+  return await response.json()
 }
 
 export const confirmDrawing = async (drawingId: string, token: string) => {
@@ -144,4 +118,41 @@ export const confirmDrawing = async (drawingId: string, token: string) => {
   } catch (_) {}
   await new Promise((r) => setTimeout(r, 300))
   return { ok: true }
+}
+
+// --- Harvest/Distribution API stubs ---
+export type PrepareHarvestResponse = {
+  preparedAt: string
+  allocations: { t1: number; t2: number; t3: number; t4: number }
+  audit?: { blockhash?: string; slot?: number; txSignatures?: string[]; ataAddresses?: Record<string,string> }
+}
+
+export const prepareHarvest = async (
+  token: string,
+  payload: { roundId: string }
+): Promise<PrepareHarvestResponse> => {
+  if (!token) throw new Error('Missing auth token')
+  const response = await fetch('/api/harvest/prepare', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify(payload || {}),
+  })
+  if (!response.ok) throw new Error(await response.text())
+  return await response.json()
+}
+
+export type ReleaseDistributionResponse = {
+  releasedAt: string
+  txSignatures: string[]
+}
+
+export const releaseDistribution = async (token: string): Promise<ReleaseDistributionResponse> => {
+  if (!token) throw new Error('Missing auth token')
+  const response = await fetch('/api/distribution/release', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({}),
+  })
+  if (!response.ok) throw new Error(await response.text())
+  return await response.json()
 }

@@ -12,8 +12,8 @@ body {
 
 /* Dynamic base font scaling for responsive readability */
 html {
-  /* Scales between ~16px on small screens to ~22px on very wide screens */
-  font-size: clamp(16px, 1.6vw, 22px);
+  /* Restore baseline rem to browser default for 100% view */
+  font-size: 16px;
 }
 
 html, body {
@@ -36,6 +36,11 @@ html, body {
 
 .shadow-glow {
   box-shadow: 0 0 8px rgba(0, 255, 255, 0.3), 0 0 16px rgba(0, 255, 255, 0.2);
+}
+
+/* Indigo glow for workflow pills */
+.shadow-indigo-glow {
+  box-shadow: 0 0 8px rgba(99, 102, 241, 0.35), 0 0 16px rgba(99, 102, 241, 0.25);
 }
 
 /* Brand gradient title (matches main site style) */

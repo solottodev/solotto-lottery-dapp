@@ -6,7 +6,8 @@ type DateTimePickerProps = {
   value?: string;
   onChange?: (value: string) => void;
   placeholder?: string;
-  className?: string;
+  className?: string; // applied to the input button for sizing/spacing overrides
+  containerClassName?: string; // optional wrapper styles
 };
 
 function startOfMonth(d: Date) {
@@ -30,7 +31,7 @@ function toLocalInputString(date: Date, time: string) {
   return `${out.getFullYear()}-${pad(out.getMonth() + 1)}-${pad(out.getDate())}T${pad(out.getHours())}:${pad(out.getMinutes())}`;
 }
 
-export const DateTimePicker: React.FC<DateTimePickerProps> = ({ value, onChange, placeholder = "Select date & time", className = "" }) => {
+export const DateTimePicker: React.FC<DateTimePickerProps> = ({ value, onChange, placeholder = "Select date & time", className = "", containerClassName = "" }) => {
   const parsed = useMemo(() => (value ? new Date(value) : new Date()), [value]);
   const [open, setOpen] = useState(false);
   const [visibleMonth, setVisibleMonth] = useState(startOfMonth(parsed));
@@ -77,14 +78,14 @@ export const DateTimePicker: React.FC<DateTimePickerProps> = ({ value, onChange,
   };
 
   return (
-    <div ref={wrapperRef} className={`relative ${className}`}>
+    <div ref={wrapperRef} className={`relative ${containerClassName}`}>
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center justify-between rounded-lg border border-primary/20 bg-night-800 px-5 py-3.5 text-left text-[16px] md:text-[17px] text-white placeholder:text-slate-500 shadow-inner focus:outline-none focus:ring-2 focus:ring-primary/40"
+        className={`flex w-full items-center justify-between rounded-lg border border-primary/20 bg-night-800 px-5 py-3.5 text-left text-[16px] md:text-[17px] text-white placeholder:text-slate-500 shadow-inner focus:outline-none focus:ring-2 focus:ring-primary/40 ${className}`}
       >
-        <span className={display ? "" : "text-slate-500"}>{display || placeholder}</span>
-        <span className="ml-4 inline-flex h-6 w-6 items-center justify-center rounded-md border border-primary/30 text-slate-200">📅</span>
+        <span className={`truncate whitespace-nowrap leading-tight ${display ? "" : "text-slate-500"}`}>{display || placeholder}</span>
+        <span className="ml-3 inline-flex h-4 w-4 items-center justify-center rounded-md border border-primary/30 text-slate-200">📅</span>
       </button>
 
       {open && (
@@ -163,4 +164,3 @@ export const DateTimePicker: React.FC<DateTimePickerProps> = ({ value, onChange,
 };
 
 export default DateTimePicker;
-

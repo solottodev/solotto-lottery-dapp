@@ -19,7 +19,7 @@ export const ConfigSchema = z.object({
   tradeThresholdPercent: z.number({ invalid_type_error: 'Enter a number' })
     .min(0)
     .max(100),
-  infraAllocationPercent: z.number({ invalid_type_error: 'Enter a number' })
+  prizeDistributionPercent: z.number({ invalid_type_error: 'Enter a number' })
     .min(0)
     .max(100),
   slippageTolerancePercent: z
@@ -46,4 +46,30 @@ export const ConfigSchema = z.object({
 })
 
 export type ConfigSchemaType = z.infer<typeof ConfigSchema>
+
+// Optional: response schemas (frontend-side validation placeholders)
+export const HarvestAllocationsSchema = z.object({
+  t1: z.number(),
+  t2: z.number(),
+  t3: z.number(),
+  t4: z.number(),
+})
+
+export const PrepareHarvestResponseSchema = z.object({
+  preparedAt: z.string(),
+  allocations: HarvestAllocationsSchema,
+  audit: z
+    .object({
+      blockhash: z.string().optional(),
+      slot: z.number().optional(),
+      txSignatures: z.array(z.string()).optional(),
+      ataAddresses: z.record(z.string()).optional(),
+    })
+    .optional(),
+})
+
+export const ReleaseDistributionResponseSchema = z.object({
+  releasedAt: z.string(),
+  txSignatures: z.array(z.string()),
+})
 

@@ -1,15 +1,11 @@
 import { NextRequest } from 'next/server'
 
-function gen(): string {
-  return Math.random().toString(36).slice(2).toUpperCase().padEnd(20, 'X')
+export async function POST(req: NextRequest) {
+  const backend = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000'
+  const url = `${backend.replace(/\/$/, '')}/api/v1/drawing/run`
+  const auth = req.headers.get('authorization')
+  const body = await req.text()
+  const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(auth ? { Authorization: auth } : {}) }, body })
+  const text = await res.text()
+  return new Response(text, { status: res.status, headers: { 'Content-Type': res.headers.get('content-type') || 'application/json' } })
 }
-
-export async function POST(_req: NextRequest) {
-  // Stub endpoint: returns mock winners for each tier
-  const payload = { winners: { t1: gen(), t2: gen(), t3: gen(), t4: gen() } }
-  return new Response(JSON.stringify(payload), {
-    status: 200,
-    headers: { 'Content-Type': 'application/json' },
-  })
-}
-

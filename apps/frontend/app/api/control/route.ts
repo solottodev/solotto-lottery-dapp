@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 
 export async function POST(req: NextRequest) {
   const backend = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
-  const url = `${backend.replace(/\/$/, '')}/control`;
+  const url = `${backend.replace(/\/$/, '')}/api/v1/control`;
 
   const auth = req.headers.get('authorization');
   const body = await req.text();
@@ -22,4 +22,3 @@ export async function POST(req: NextRequest) {
     headers: { 'Content-Type': res.headers.get('content-type') || 'application/json' },
   });
 }
-
