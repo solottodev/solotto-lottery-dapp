@@ -20,10 +20,12 @@ import DateTimePicker from '@/components/ui/date-time-picker'
 import { Controller } from 'react-hook-form'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { HelperText } from '@/components/ui/helper-text'
+import { CheckCircle2 } from 'lucide-react'
 
 export const ControlForm = () => {
   const { jwt } = useAuthStore()
-  const { controlEnabled, setControlSubmitted, setParticipantCounts, setControlConfig, setPrizePoolSol, setRoundId } = useModuleStore()
+  const { controlEnabled, controlSubmitted, setControlSubmitted, setParticipantCounts, setControlConfig, setPrizePoolSol, setRoundId } = useModuleStore()
   const { connection } = useConnection()
   const { publicKey } = useWallet()
 
@@ -86,13 +88,14 @@ export const ControlForm = () => {
       setControlConfig({
         startDate: data.startDate,
         endDate: data.endDate,
+        tradeThresholdPercent: data.tradeThresholdPercent,
         prizeDistributionPercent,
         slippageTolerancePercent: data.slippageTolerancePercent,
       })
       setPrizePoolSol(resp?.prizePoolSol ?? prizePoolSol)
       if (resp?.roundId) setRoundId(resp.roundId)
-      // Simulate qualifying participants appearing in Snapshot after successful control submission
-      setParticipantCounts({ t1: 147, t2: 441, t3: 882, t4: 1470 })
+      // Participant counts will be set after snapshot confirmation
+      setParticipantCounts(null)
     } catch (error) {
       console.error('Config creation failed:', error)
       alert('Invalid parameters or server error. Please review inputs and try again.')
@@ -110,44 +113,44 @@ export const ControlForm = () => {
   if (!controlEnabled) return null
 
   return (
-    <section className="rounded-3xl border border-primary/20 bg-night-900/60 p-6 shadow-panel">
-      <form onSubmit={form.handleSubmit(onSubmit, onInvalid)} className="mt-4 grid gap-5">
+    <section className="rounded-3xl border border-primary/20 bg-night-900/60 p-4 sm:p-6 shadow-panel">
+      <form onSubmit={form.handleSubmit(onSubmit, onInvalid)} className="mt-4 grid gap-4 sm:gap-5">
         {/* Start Date */}
-        <div className="grid items-center gap-2 md:grid-cols-[260px,1fr]">
+        <div className="grid items-start sm:items-center gap-2 sm:grid-cols-[200px,1fr] lg:grid-cols-[260px,1fr]">
           <Label htmlFor="startDate" className="text-slate-300 text-xs md:text-sm">Start Date</Label>
           <div>
             <Controller
               control={form.control}
               name="startDate"
               render={({ field }) => (
-                <DateTimePicker id="startDate" value={field.value} onChange={field.onChange} className="h-8 px-2.5 py-1.5 text-[10px] md:text-[12px]" />
+                <DateTimePicker value={field.value} onChange={field.onChange} className="h-8 w-full px-2.5 py-1.5 text-[10px] md:text-[12px]" />
               )}
             />
             {form.formState.errors.startDate && (
-              <p className="mt-1 text-red-400 text-sm">{form.formState.errors.startDate.message}</p>
+              <p className="mt-1 text-red-400 text-xs sm:text-sm">{form.formState.errors.startDate.message}</p>
             )}
           </div>
         </div>
 
         {/* End Date */}
-        <div className="grid items-center gap-2 md:grid-cols-[260px,1fr]">
+        <div className="grid items-start sm:items-center gap-2 sm:grid-cols-[200px,1fr] lg:grid-cols-[260px,1fr]">
           <Label htmlFor="endDate" className="text-slate-300 text-xs md:text-sm">End Date</Label>
           <div>
             <Controller
               control={form.control}
               name="endDate"
               render={({ field }) => (
-                <DateTimePicker id="endDate" value={field.value} onChange={field.onChange} className="h-8 px-2.5 py-1.5 text-[10px] md:text-[12px]" />
+                <DateTimePicker value={field.value} onChange={field.onChange} className="h-8 w-full px-2.5 py-1.5 text-[10px] md:text-[12px]" />
               )}
             />
             {form.formState.errors.endDate && (
-              <p className="mt-1 text-red-400 text-sm">{form.formState.errors.endDate.message}</p>
+              <p className="mt-1 text-red-400 text-xs sm:text-sm">{form.formState.errors.endDate.message}</p>
             )}
           </div>
         </div>
 
         {/* Trade Threshold (%) */}
-        <div className="grid items-center gap-2 md:grid-cols-[260px,1fr]">
+        <div className="grid items-start sm:items-center gap-2 sm:grid-cols-[200px,1fr] lg:grid-cols-[260px,1fr]">
           <Label htmlFor="tradeThresholdPercent" className="text-slate-300 text-xs md:text-sm">Trade Threshold (%)</Label>
           <div>
             <Input
@@ -158,13 +161,13 @@ export const ControlForm = () => {
               {...form.register('tradeThresholdPercent', { valueAsNumber: true })}
             />
             {form.formState.errors.tradeThresholdPercent && (
-              <p className="mt-1 text-red-400 text-sm">{form.formState.errors.tradeThresholdPercent.message}</p>
+              <p className="mt-1 text-red-400 text-xs sm:text-sm">{form.formState.errors.tradeThresholdPercent.message}</p>
             )}
           </div>
         </div>
 
-        {/* Infra Allocation (%) */}
-        <div className="grid items-center gap-2 md:grid-cols-[260px,1fr]">
+        {/* Prize Distribution (%) */}
+        <div className="grid items-start sm:items-center gap-2 sm:grid-cols-[200px,1fr] lg:grid-cols-[260px,1fr]">
           <Label htmlFor="prizeDistributionPercent" className="text-slate-300 text-xs md:text-sm">Prize Distribution (%)</Label>
           <div>
             <Input
@@ -175,13 +178,13 @@ export const ControlForm = () => {
               {...form.register('prizeDistributionPercent', { valueAsNumber: true })}
             />
             {form.formState.errors.prizeDistributionPercent && (
-              <p className="mt-1 text-red-400 text-sm">{form.formState.errors.prizeDistributionPercent.message}</p>
+              <p className="mt-1 text-red-400 text-xs sm:text-sm">{form.formState.errors.prizeDistributionPercent.message}</p>
             )}
           </div>
         </div>
 
         {/* Slippage Tolerance (%) */}
-        <div className="grid items-center gap-2 md:grid-cols-[260px,1fr]">
+        <div className="grid items-start sm:items-center gap-2 sm:grid-cols-[200px,1fr] lg:grid-cols-[260px,1fr]">
           <Label htmlFor="slippageTolerancePercent" className="text-slate-300 text-xs md:text-sm">Slippage Tolerance (%)</Label>
           <div>
             <Input
@@ -192,23 +195,23 @@ export const ControlForm = () => {
               {...form.register('slippageTolerancePercent', { valueAsNumber: true })}
             />
             {form.formState.errors.slippageTolerancePercent && (
-              <p className="mt-1 text-red-400 text-sm">{form.formState.errors.slippageTolerancePercent.message}</p>
+              <p className="mt-1 text-red-400 text-xs sm:text-sm">{form.formState.errors.slippageTolerancePercent.message}</p>
             )}
           </div>
         </div>
 
         {/* Blacklisted Wallets */}
-        <div className="grid items-start gap-2 md:grid-cols-[260px,1fr]">
+        <div className="grid items-start gap-2 sm:grid-cols-[200px,1fr] lg:grid-cols-[260px,1fr]">
           <Label htmlFor="blacklistedWallets" className="mt-1 text-slate-300 text-xs md:text-sm">Blacklisted Wallets (optional)</Label>
           <div>
             <Textarea
               id="blacklistedWallets"
-              className="w-full rounded-lg border border-primary/20 bg-night-800 px-2.5 py-1.5 text-[10px] md:text-[12px] text-white placeholder:text-slate-500"
+              className="w-full min-h-[60px] sm:min-h-[80px] rounded-lg border border-primary/20 bg-night-800 px-2.5 py-1.5 text-[10px] md:text-[12px] text-white placeholder:text-slate-500"
               placeholder="Enter comma-separated wallet addresses"
               {...form.register('blacklistedWallets')}
             />
             {form.formState.errors.blacklistedWallets && (
-              <p className="mt-1 text-red-400 text-sm">{form.formState.errors.blacklistedWallets.message}</p>
+              <p className="mt-1 text-red-400 text-xs sm:text-sm">{form.formState.errors.blacklistedWallets.message}</p>
             )}
           </div>
         </div>
@@ -216,12 +219,36 @@ export const ControlForm = () => {
         <div className="pt-2">
           <Button
             type="submit"
-            className="rounded-lg bg-badge-gradient px-4 py-2 text-sm font-semibold text-white shadow-md"
+            disabled={controlSubmitted}
+            className={`w-full sm:w-auto rounded-lg px-4 py-2 text-xs sm:text-sm font-semibold shadow-md transition-all ${
+              controlSubmitted
+                ? 'bg-night-800 text-slate-400 cursor-not-allowed border border-primary/20'
+                : 'bg-badge-gradient text-white'
+            }`}
           >
-            Configure Parameters
+            {controlSubmitted ? (
+              <span className="flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4" />
+                Configuration Submitted
+              </span>
+            ) : (
+              'Configure Parameters'
+            )}
           </Button>
         </div>
       </form>
+
+      {/* Helper Text */}
+      {!controlSubmitted && (
+        <HelperText variant="info">
+          Configure lottery parameters and click submit to proceed to the Snapshot module.
+        </HelperText>
+      )}
+      {controlSubmitted && (
+        <HelperText variant="success">
+          Configuration saved successfully! Proceed to the Snapshot module.
+        </HelperText>
+      )}
     </section>
   )
 }

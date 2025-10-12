@@ -4,7 +4,8 @@ import { requireJwt } from '../middleware/requireJwt';
 import prisma from '../prisma';
 import { lotteryConfigSchema } from '../utils/zodSchemas';
 import { ConfigStatus } from '@prisma/client';
-import type { ZodIssue } from 'zod';
+import { PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
+import { getRPCService } from '../services/rpc.service';
 
 
 const router = express.Router();
@@ -40,7 +41,7 @@ router.post('/', requireJwt, async (req, res) => {
     if (!parsed.success) {
       return res.status(400).json({
         error: 'Invalid input',
-        issues: parsed.error.issues.map((e: ZodIssue) => ({
+        issues: parsed.error.issues.map((e) => ({
           path: e.path.join('.'),
           message: e.message,
         })),
@@ -62,12 +63,50 @@ router.post('/', requireJwt, async (req, res) => {
       prizeSourceBalanceSol,
     } = parsed.data;
 
+    // ✅ NEW: Validate prize source wallet balance on-chain
+    try {
+      const rpcService = getRPCService();
+      const walletPubkey = new PublicKey(prizeSourceWallet);
+
+      console.log(`🔍 Validating balance for wallet: ${prizeSourceWallet}`);
+
+      const actualBalanceLamports = await rpcService.getBalance(walletPubkey);
+      const actualBalanceSol = actualBalanceLamports / LAMPORTS_PER_SOL;
+
+      console.log(`   User provided: ${prizeSourceBalanceSol} SOL`);
+      console.log(`   Actual on-chain: ${actualBalanceSol} SOL`);
+
+      // Allow 0.01 SOL tolerance for transaction fees
+      const tolerance = 0.01;
+      if (Math.abs(actualBalanceSol - prizeSourceBalanceSol) > tolerance) {
+        return res.status(400).json({
+          error: 'Prize source wallet balance mismatch',
+          provided: prizeSourceBalanceSol,
+          actual: actualBalanceSol,
+          message: `The wallet balance you provided (${prizeSourceBalanceSol} SOL) does not match the on-chain balance (${actualBalanceSol} SOL)`
+        });
+      }
+
+      console.log(`✅ Wallet balance validated successfully`);
+    } catch (walletError) {
+      console.error('❌ Failed to validate wallet balance:', walletError);
+      return res.status(400).json({
+        error: 'Invalid prize source wallet',
+        message: walletError instanceof Error ? walletError.message : 'Could not query wallet balance'
+      });
+    }
+
     const userId = (req as any)?.user?.id as string | undefined;
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    // Validate submitted blacklist entries (basic check)
+    // ✅ BLACKLIST SYSTEM: Two-tier approach
+    // 1. HARD_BLACKLIST (env var): Permanent blacklist enforced across ALL rounds
+    // 2. Control Form blacklist: Per-round blacklist submitted by operator
+    // Both lists are merged and deduplicated before snapshot
+
+    // Validate submitted blacklist entries from Control Form (basic check)
     const submitted = Array.isArray(blacklist) ? blacklist : [];
     const invalidSubmitted = submitted.filter((a) => !isLikelySolAddress(a));
     if (invalidSubmitted.length > 0) {
@@ -77,7 +116,7 @@ router.post('/', requireJwt, async (req, res) => {
       });
     }
 
-    // Always-enforced hard blacklist from env
+    // Always-enforced hard blacklist from env (permanently blocks specific wallets)
     const hard = parseHardBlacklist();
     const invalidHard = hard.filter((a) => !isLikelySolAddress(a));
     if (invalidHard.length > 0) {
@@ -85,8 +124,14 @@ router.post('/', requireJwt, async (req, res) => {
     }
     const effectiveHard = hard.filter((a) => isLikelySolAddress(a));
 
-    // Union submitted + hardcoded, unique
+    // Merge: submitted + hardcoded, unique
+    // Note: Hard blacklist wallets are ALWAYS included, even if not in form
     const combined = Array.from(new Set<string>([...submitted, ...effectiveHard]));
+
+    console.log(`🔒 Blacklist Summary:
+       - Hard blacklist (env): ${effectiveHard.length} wallets
+       - Control form blacklist: ${submitted.length} wallets
+       - Total combined (unique): ${combined.length} wallets`);
 
     const config = await prisma.lotteryConfig.create({
       data: {

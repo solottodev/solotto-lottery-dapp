@@ -52,8 +52,8 @@ export default function DistributionPage() {
       setDistributionStatus('releasing')
       let txs: string[] = []
       try {
-        if (jwt) {
-          const res = await releaseDistribution(jwt)
+        if (jwt && roundId) {
+          const res = await releaseDistribution(jwt, roundId, swapToLotto)
           txs = res.txSignatures
         } else {
           await new Promise((r) => setTimeout(r, 600))

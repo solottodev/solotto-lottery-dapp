@@ -86,6 +86,7 @@ model Participant {
   tokenBalance     Float?
   tier             Int?
   eligibilityScore Float?
+  isEligible       Boolean  @default(false)
   isWinner         Boolean  @default(false)
   createdAt        DateTime @default(now())
   round            Round    @relation(fields: [roundId], references: [id], onDelete: Cascade)

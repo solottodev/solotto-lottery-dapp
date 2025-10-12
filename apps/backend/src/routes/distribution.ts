@@ -1,13 +1,150 @@
 import express from 'express'
 import { requireJwt } from '../middleware/requireJwt'
+import prisma from '../prisma'
+import { getTransferService } from '../services/transfer.service'
+import { getWalletService } from '../services/wallet.service'
+import { getRPCService } from '../services/rpc.service'
 
 const router = express.Router()
 
-// POST /distribution/release — stub implementation
-router.post('/release', requireJwt, async (_req, res) => {
-  const releasedAt = new Date().toISOString()
-  const txSignatures = [`tx_${Math.random().toString(36).slice(2, 12)}`]
-  return res.json({ releasedAt, txSignatures })
+// POST /distribution/release { roundId, swapToLotto }
+router.post('/release', requireJwt, async (req, res) => {
+  try {
+    const { roundId, swapToLotto } = req.body || {}
+    if (!roundId) return res.status(400).json({ error: 'Missing roundId' })
+
+    console.log(`\n🎁 Starting prize distribution for round ${roundId}`)
+    console.log(`   swapToLotto: ${swapToLotto ? 'Yes' : 'No'}`)
+
+    // Get round with winners and payouts
+    const round = await prisma.round.findUnique({ where: { id: roundId } })
+    if (!round) return res.status(404).json({ error: 'Round not found' })
+
+    const winners = (round.tierWinners as any) || {}
+    const payouts = (round.tierPayouts as any) || {}
+
+    // Validate we have winners and payouts
+    const tiers = (['t1', 't2', 't3', 't4'] as const).filter(
+      (t) => winners[t] && payouts[t] > 0
+    )
+
+    if (tiers.length === 0) {
+      return res.status(400).json({ error: 'No winners or payouts found' })
+    }
+
+    console.log(`   Distributing prizes to ${tiers.length} winners`)
+
+    // Load operator wallet
+    const walletService = getWalletService()
+    let operatorKeypair
+    try {
+      operatorKeypair = walletService.loadOperatorKeypair()
+    } catch (error) {
+      return res.status(500).json({
+        error: 'Operator wallet not configured',
+        details: error instanceof Error ? error.message : String(error)
+      })
+    }
+
+    // Get transfer service and RPC for audit
+    const transferService = getTransferService()
+    const rpcService = getRPCService()
+    const connection = rpcService.getConnection()
+
+    // Capture blockchain state for audit
+    const latestBlockhash = await rpcService.getLatestBlockhash()
+    const slot = await connection.getSlot()
+
+    // Distribute prizes to each winner
+    const txSignatures: string[] = []
+    const ataAddresses: Record<string, string> = {}
+
+    for (const tier of tiers) {
+      const winnerAddress = winners[tier]
+      const amount = payouts[tier]
+
+      console.log(`\n   Tier ${tier.toUpperCase()}: ${amount} SOL to ${winnerAddress.slice(0, 8)}...`)
+
+      try {
+        if (swapToLotto) {
+          // Transfer as SPL tokens (requires token mint configuration)
+          const tokenMint = process.env.LOTTO_MINT_ADDRESS
+          const decimals = parseInt(process.env.LOTTO_DECIMALS || '6', 10)
+
+          if (!tokenMint || tokenMint === 'your_devnet_token_mint_address') {
+            throw new Error('LOTTO_MINT_ADDRESS not configured for token distribution')
+          }
+
+          // TODO: In production, convert SOL to $LOTTO via Jupiter/DEX first
+          // For now, assume operator wallet has sufficient $LOTTO tokens
+          console.log(`   ⚠️  Note: In production, would swap ${amount} SOL to $LOTTO first`)
+
+          const result = await transferService.transferSPLToken(
+            operatorKeypair,
+            winnerAddress,
+            tokenMint,
+            amount, // In production, this would be converted amount
+            decimals,
+            1000 // priority fee
+          )
+
+          txSignatures.push(result.signature)
+          if (result.ataAddress) {
+            ataAddresses[tier] = result.ataAddress
+          }
+        } else {
+          // Transfer as SOL
+          const result = await transferService.transferSOL(
+            operatorKeypair,
+            winnerAddress,
+            amount,
+            1000 // priority fee
+          )
+
+          txSignatures.push(result.signature)
+        }
+
+        console.log(`   ✅ Prize distributed successfully`)
+      } catch (error) {
+        console.error(`   ❌ Failed to distribute prize to ${tier}:`, error)
+        return res.status(500).json({
+          error: `Failed to distribute prize to tier ${tier}`,
+          details: error instanceof Error ? error.message : String(error),
+          partialTxSignatures: txSignatures
+        })
+      }
+    }
+
+    // Update round with distribution data
+    const distributionDate = new Date()
+    await prisma.round.update({
+      where: { id: roundId },
+      data: {
+        distributionDate,
+        swapToLotto: swapToLotto || false
+      }
+    })
+
+    console.log(`\n✅ Prize distribution complete for round ${roundId}`)
+    console.log(`   Transactions: ${txSignatures.length}`)
+    console.log(`   Blockhash: ${latestBlockhash.blockhash.slice(0, 16)}...`)
+
+    return res.json({
+      releasedAt: distributionDate.toISOString(),
+      txSignatures,
+      ataAddresses: Object.keys(ataAddresses).length > 0 ? ataAddresses : undefined,
+      audit: {
+        blockhash: latestBlockhash.blockhash,
+        slot,
+      }
+    })
+  } catch (e) {
+    console.error('distribution/release failed', e)
+    return res.status(500).json({
+      error: 'Internal server error',
+      details: e instanceof Error ? e.message : String(e)
+    })
+  }
 })
 
 export default router

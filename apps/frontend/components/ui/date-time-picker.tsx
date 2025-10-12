@@ -89,55 +89,58 @@ export const DateTimePicker: React.FC<DateTimePickerProps> = ({ value, onChange,
       </button>
 
       {open && (
-        <div className="absolute z-50 mt-2 w-[420px] rounded-2xl border border-primary/25 bg-night-900/95 p-4 text-white shadow-xl backdrop-blur">
-          <div className="mb-3 flex items-center justify-between">
+        <div className="absolute z-50 mt-2 w-full max-w-[380px] rounded-2xl border border-primary/25 bg-night-900/95 p-3 text-white shadow-xl backdrop-blur max-h-[85vh] overflow-y-auto">
+          <div className="mb-2 flex items-center justify-between">
             <button
               type="button"
               onClick={() => setVisibleMonth(new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() - 1, 1))}
-              className="rounded-md border border-primary/20 px-3 py-1 text-primary hover:bg-primary/10"
+              className="rounded-md border border-primary/20 px-2 py-1 text-sm text-primary hover:bg-primary/10"
             >
               ◀
             </button>
-            <div className="text-lg font-semibold text-primary">
+            <div className="text-base font-semibold text-primary">
               {visibleMonth.toLocaleString(undefined, { month: "long", year: "numeric" })}
             </div>
             <button
               type="button"
               onClick={() => setVisibleMonth(new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() + 1, 1))}
-              className="rounded-md border border-primary/20 px-3 py-1 text-primary hover:bg-primary/10"
+              className="rounded-md border border-primary/20 px-2 py-1 text-sm text-primary hover:bg-primary/10"
             >
               ▶
             </button>
           </div>
 
-          <div className="grid grid-cols-7 gap-2 text-center text-sm text-slate-300">
+          <div className="grid grid-cols-7 gap-1.5 text-center text-xs text-slate-300">
             {["Su","Mo","Tu","We","Th","Fr","Sa"].map((d) => (
-              <div key={d} className="text-slate-400">{d}</div>
+              <div key={d} className="text-slate-400 text-[10px]">{d}</div>
             ))}
             {days.map((d, i) => (
               <button
                 key={i}
                 disabled={!d}
                 onClick={() => d && setDate(d)}
-                className={`h-10 rounded-md border border-primary/20 ${d ? "hover:bg-primary/10" : "opacity-30"}`}
+                className={`h-9 text-sm rounded-md border border-primary/20 ${d ? "hover:bg-primary/10" : "opacity-30"}`}
               >
                 {d ? d.getDate() : ""}
               </button>
             ))}
           </div>
 
-          <div className="mt-4 flex items-center justify-between">
-            <input
-              type="time"
-              value={tmpTime}
-              onChange={(e) => setTmpTime(e.target.value)}
-              className="rounded-md border border-primary/25 bg-night-800 px-3 py-2 text-white"
-            />
-            <div className="flex gap-2">
+          <div className="mt-3 flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              <label className="text-xs text-slate-300 whitespace-nowrap">Time:</label>
+              <input
+                type="time"
+                value={tmpTime}
+                onChange={(e) => setTmpTime(e.target.value)}
+                className="flex-1 rounded-md border border-primary/25 bg-night-800 px-2 py-1.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary/40"
+              />
+            </div>
+            <div className="flex gap-2 justify-end">
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                className="rounded-md border border-primary/25 px-4 py-2 text-slate-200 hover:bg-night-800"
+                className="rounded-md border border-primary/25 px-3 py-1.5 text-xs text-slate-200 hover:bg-night-800"
               >
                 Cancel
               </button>
@@ -151,7 +154,7 @@ export const DateTimePicker: React.FC<DateTimePickerProps> = ({ value, onChange,
                   onChange?.(toLocalInputString(d, tmpTime));
                   setOpen(false);
                 }}
-                className="rounded-md bg-badge-gradient px-4 py-2 font-semibold text-white shadow-md"
+                className="rounded-md bg-badge-gradient px-3 py-1.5 text-xs font-semibold text-white shadow-md"
               >
                 Apply
               </button>

@@ -2,3 +2,8 @@ apps/frontend/.next/
 node_modules/
 .env
 *.log
+ 
+# Ignore accidental Windows reserved-name files (cannot be indexed on Windows)
+nul
+*/nul
+apps/backend/nul

@@ -31,14 +31,52 @@ app.use('/api/v1/auth', authRouter);
 app.use("/protected", protectedRouter);
 
 // Basic health route
-import prisma, { prismaRO } from './prisma';
+import { prismaRO } from './prisma';
+import { getRPCService } from './services/rpc.service';
+import { getAlchemyClient } from './services/alchemy.client';
+
 app.get('/api/v1/health', async (_req, res) => {
   try {
     await prismaRO.$queryRaw`SELECT 1`;
-    return res.json({ ok: true });
+    return res.json({ ok: true, database: 'healthy' });
   } catch (e) {
     console.error('Health check failed', e);
-    return res.status(500).json({ ok: false });
+    return res.status(500).json({ ok: false, database: 'unhealthy' });
+  }
+});
+
+// RPC health check
+app.get('/api/v1/health/rpc', async (_req, res) => {
+  try {
+    const rpcService = getRPCService();
+    const health = await rpcService.testConnections();
+
+    const allHealthy = health.primary.healthy && health.fallback.healthy;
+
+    return res.json({
+      ok: allHealthy,
+      connections: health,
+      timestamp: new Date().toISOString()
+    });
+  } catch (e) {
+    console.error('RPC health check failed', e);
+    return res.status(500).json({ ok: false, error: 'RPC health check failed' });
+  }
+});
+
+// Alchemy health check
+app.get('/api/v1/health/alchemy', async (_req, res) => {
+  try {
+    const alchemyClient = getAlchemyClient();
+    const healthy = await alchemyClient.testConnection();
+
+    return res.json({
+      ok: healthy,
+      timestamp: new Date().toISOString()
+    });
+  } catch (e) {
+    console.error('Alchemy health check failed', e);
+    return res.status(500).json({ ok: false, error: 'Alchemy not configured or unhealthy' });
   }
 });
 

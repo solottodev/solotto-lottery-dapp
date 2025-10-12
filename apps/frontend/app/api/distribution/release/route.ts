@@ -5,13 +5,17 @@ export async function POST(req: NextRequest) {
   const url = `${backend.replace(/\/$/, '')}/api/v1/distribution/release`
 
   const auth = req.headers.get('authorization')
+
+  // Forward the request body from the frontend
+  const body = await req.json()
+
   const res = await fetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       ...(auth ? { Authorization: auth } : {}),
     },
-    body: JSON.stringify({}),
+    body: JSON.stringify(body), // ✅ Forward actual body with roundId and swapToLotto
   })
   const text = await res.text()
   return new Response(text, { status: res.status, headers: { 'Content-Type': res.headers.get('content-type') || 'application/json' } })

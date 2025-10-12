@@ -32,7 +32,18 @@ Deployment Actions for Solotto Lottery (Control Module)
 6) Observability
 - Configure logging, error monitoring (Sentry/Grafana), and alerts for `/control` route to track operator actions.
 
-7) Post-Deploy Validation
+7) Remove Test Data Participant Auto-Copy Feature
+- **CRITICAL FOR PRODUCTION**: The Control module currently auto-copies participants from existing test rounds (see `apps/backend/src/routes/control.ts` lines 127-172).
+- This feature is designed for local testing ONLY and must be removed before deploying to devnet/mainnet.
+- **Action Required**:
+  - Remove or comment out the participant auto-copy logic in `control.ts` (lines 127-172)
+  - Participants should come from real blockchain snapshots, not test data templates
+  - Alternative: Add an environment check `if (process.env.NODE_ENV === 'development')` to only enable this in local development
+- **Why this exists**: This allows local E2E testing with pre-seeded wallet addresses without needing to run actual blockchain snapshots
+- **Production behavior**: Snapshots should query real on-chain wallet holders and create participants from actual blockchain data
+
+8) Post-Deploy Validation
 - Verify operator login via email/password works (no wallet required).
 - Submit a control configuration and confirm it persists and is visible in the DB.
 - Confirm the frontend Control form is visible but locked until login, then becomes editable.
+- **Verify participant auto-copy is disabled** by checking that new rounds have 0 participants until real snapshot data is loaded.

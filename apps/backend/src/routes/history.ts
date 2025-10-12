@@ -1,10 +1,29 @@
-import express from 'express'
+﻿import express from 'express'
 import prisma, { prismaRO } from '../prisma'
 import { requireJwt } from '../middleware/requireJwt'
 
 const router = express.Router()
 
-// GET /history/rounds — recent rounds list
+const runParticipantQuery = async <T>(runner: (client: typeof prisma) => Promise<T>): Promise<T> => {
+  try {
+    return await runner(prismaRO)
+  } catch (error) {
+    if (isParticipantPermissionError(error)) {
+      const message = error instanceof Error ? error.message : String(error)
+      console.warn('Participant query fallback to primary client:', message)
+      return runner(prisma)
+    }
+    throw error
+  }
+}
+
+const isParticipantPermissionError = (error: unknown) => {
+  if (!error) return false
+  const info = String((error as any)?.message ?? '') + String((error as any)?.cause?.message ?? '')
+  return info.includes('permission denied for table') || info.includes('42501')
+}
+
+// GET /history/rounds - recent rounds list
 router.get('/rounds', async (req, res) => {
   try {
     const page = Math.max(1, parseInt(String(req.query.page || '1')) || 1)
@@ -12,7 +31,15 @@ router.get('/rounds', async (req, res) => {
     const skip = (page - 1) * size
     const [total, rounds] = await Promise.all([
       prismaRO.round.count(),
-      prismaRO.round.findMany({ orderBy: { createdAt: 'desc' }, skip, take: size }),
+      // Sort by drawingDate desc (most recent first), nulls last, then createdAt desc as fallback
+      prismaRO.round.findMany({
+        orderBy: [
+          { drawingDate: { sort: 'desc', nulls: 'last' } },
+          { createdAt: 'desc' }
+        ],
+        skip,
+        take: size
+      }),
     ])
     return res.json({ rounds, meta: { page, size, total, pages: Math.ceil(total / size) } })
   } catch (e) {
@@ -21,7 +48,7 @@ router.get('/rounds', async (req, res) => {
   }
 })
 
-// GET /history/round/:id — round detail (public)
+// GET /history/round/:id - round detail (public)
 router.get('/round/:id', async (req, res) => {
   const id = String(req.params.id || '')
   if (!id) return res.status(400).json({ error: 'Missing id' })
@@ -30,8 +57,11 @@ router.get('/round/:id', async (req, res) => {
     if (!round) return res.status(404).json({ error: 'Not found' })
     const winners = (round.tierWinners as any) || {}
     const payouts = (round.tierPayouts as any) || {}
-    // Optionally include winning participants if present
-    const participants = await prismaRO.participant.findMany({ where: { roundId: id, isWinner: true } })
+    // Load all participants so downstream exports see full counts
+    const participants = await prismaRO.participant.findMany({
+      where: { roundId: id },
+      orderBy: [{ tier: 'asc' }, { wallet: 'asc' }],
+    })
     const audit = {
       txSignatures: (round as any).distributionTxSignatures || [],
       ataAddresses: (round as any).distributionAtaAddresses || {},
@@ -46,7 +76,7 @@ router.get('/round/:id', async (req, res) => {
   }
 })
 
-// GET /history/wallet/:address — all entries for a wallet across rounds
+// GET /history/wallet/:address - all entries for a wallet across rounds
 router.get('/wallet/:address', async (req, res) => {
   const address = String(req.params.address || '').trim()
   if (!address) return res.status(400).json({ error: 'Missing address' })
@@ -66,7 +96,7 @@ router.get('/wallet/:address', async (req, res) => {
   }
 })
 
-// GET /history/export — CSV of rounds
+// GET /history/export - CSV of rounds
 router.get('/export', async (_req, res) => {
   try {
     const rounds = await prismaRO.round.findMany({ orderBy: { createdAt: 'desc' } })
@@ -107,17 +137,18 @@ router.get('/export', async (_req, res) => {
   }
 })
 
-// GET /history/export/participants — CSV of all participants
+// GET /history/export/participants - CSV of all participants
 router.get('/export/participants', async (_req, res) => {
   try {
     const participants = await prismaRO.participant.findMany({ include: { round: true } })
-    const headers = ['uuID','Wallet Address','Token Balance','Tier','Eligibility Score','Is Winner','Drawing Date']
+    const headers = ['uuID','Wallet Address','Token Balance','Tier','Eligibility Score','Is Eligible','Is Winner','Drawing Date']
     const rows = participants.map((p) => [
       p.id,
       p.wallet,
       p.tokenBalance?.toString?.() || '',
       p.tier?.toString?.() || '',
       p.eligibilityScore?.toString?.() || '',
+      (p as any).isEligible ? 'true' : 'false',
       p.isWinner ? 'true' : 'false',
       p.round?.drawingDate?.toISOString?.() || '',
     ])
@@ -221,7 +252,7 @@ router.post('/admin/import/json', requireJwt as any, async (req, res) => {
   }
 })
 
-// POST /history/round/:id/audit/distribution — persist on-chain audit for distribution
+// POST /history/round/:id/audit/distribution - persist on-chain audit for distribution
 router.post('/round/:id/audit/distribution', requireJwt as any, async (req, res) => {
   const id = String(req.params.id || '')
   if (!id) return res.status(400).json({ error: 'Missing id' })
@@ -245,8 +276,7 @@ router.post('/round/:id/audit/distribution', requireJwt as any, async (req, res)
   }
 })
 
-export default router
-// GET /history/search?q=partialAddress — partial match search
+// GET /history/search?q=partialAddress - partial match search
 router.get('/search', async (req, res) => {
   const q = String(req.query.q || '').trim()
   if (!q || q.length < 3) return res.json({ entries: [] })
@@ -265,3 +295,180 @@ router.get('/search', async (req, res) => {
     return res.status(500).json({ error: 'Internal server error' })
   }
 })
+
+// GET /history/export/round/:id/full - Consolidated CSV export for a complete round
+router.get('/export/round/:id/full', async (req, res) => {
+  const roundId = String(req.params.id || '')
+  if (!roundId) return res.status(400).json({ error: 'Missing round ID' })
+
+  try {
+    // Get round with all related data (use prisma instead of prismaRO for full access)
+    const round = await prisma.round.findUnique({
+      where: { id: roundId },
+      include: {
+        participants: {
+          orderBy: [{ tier: 'asc' }, { wallet: 'asc' }]
+        },
+        snapshots: {
+          orderBy: { createdAt: 'desc' },
+          take: 1
+        },
+        drawings: {
+          orderBy: { createdAt: 'desc' },
+          take: 1
+        }
+      }
+    })
+
+    if (!round) return res.status(404).json({ error: 'Round not found' })
+
+    const snapshot = round.snapshots[0]
+    const drawing = round.drawings[0]
+    const winners = (round.tierWinners as any) || {}
+    const payouts = (round.tierPayouts as any) || {}
+    const txSignatures = (round.distributionTxSignatures as any) || []
+    const ataAddresses = (round.distributionAtaAddresses as any) || {}
+
+    // Get network from environment for Solscan URLs
+    const network = process.env.SOLANA_NETWORK || 'devnet'
+    const cluster = network === 'mainnet-beta' ? '' : `?cluster=${network}`
+
+    // CSV Headers
+    const headers = [
+      'Round ID',
+      'Round Start Date',
+      'Round End Date',
+      'Drawing Date',
+      'Distribution Date',
+      'Prize Pool (SOL)',
+      'Prize Distribution %',
+      'Prize Source Wallet',
+      'Prize Source Balance (SOL)',
+      'Total Participants',
+      'Eligible Participants',
+      'Snapshot ID',
+      'Snapshot Started At',
+      'Snapshot Completed At',
+      'Drawing ID',
+      'Drawing Started At',
+      'Drawing Completed At',
+      'Drawing Seed',
+      'Drawing Blockhash',
+      'Drawing Slot',
+      'Participant ID',
+      'Wallet Address',
+      'Token Balance',
+      'Tier',
+      'Eligibility Score',
+      'Is Eligible',
+      'Is Winner',
+      'Is Blacklisted',
+      'Prize Tier Won',
+      'Prize Amount (SOL)',
+      'Tier 1 Payout (SOL)',
+      'Tier 2 Payout (SOL)',
+      'Tier 3 Payout (SOL)',
+      'Tier 4 Payout (SOL)',
+      'Transaction Signature',
+      'Solscan URL',
+      'ATA Address',
+      'Swapped To LOTTO',
+      'Swap Route ID',
+      'Swap Slippage %'
+    ]
+
+    // Build rows - one per participant
+    const rows: string[][] = []
+
+    for (const participant of round.participants) {
+      // Determine if participant is a winner and which tier
+      let prizeTierWon = ''
+      let prizeAmount = ''
+      let txSignature = ''
+      let solscanUrl = ''
+      let ataAddress = ''
+
+      if (participant.isWinner) {
+        const tiers = ['t1', 't2', 't3', 't4']
+        for (let i = 0; i < tiers.length; i++) {
+          const tierKey = tiers[i]
+          if (winners[tierKey] === participant.wallet) {
+            prizeTierWon = `TIER ${i + 1}`
+            prizeAmount = payouts[tierKey]?.toString() || ''
+            txSignature = txSignatures[i] || ''
+            if (txSignature) {
+              solscanUrl = `https://solscan.io/tx/${txSignature}${cluster}`
+            }
+            ataAddress = ataAddresses[tierKey] || ''
+            break
+          }
+        }
+      }
+
+      rows.push([
+        round.id,
+        round.startDate?.toISOString() || '',
+        round.endDate?.toISOString() || '',
+        round.drawingDate?.toISOString() || '',
+        round.distributionDate?.toISOString() || '',
+        round.prizePoolSol?.toString() || '',
+        round.prizeDistributionPercent?.toString() || '',
+        round.prizeSourceWallet || '',
+        round.prizeSourceBalanceSol?.toString() || '',
+        round.totalParticipants?.toString() || '',
+        round.eligibleParticipants?.toString() || '',
+        snapshot?.id || '',
+        snapshot?.startedAt?.toISOString() || '',
+        snapshot?.completedAt?.toISOString() || '',
+        drawing?.id || '',
+        drawing?.startedAt?.toISOString() || '',
+        drawing?.completedAt?.toISOString() || '',
+        drawing?.seed || '',
+        drawing?.blockhash || '',
+        drawing?.slot?.toString() || '',
+        participant.id,
+        participant.wallet,
+        participant.tokenBalance?.toString() || '',
+        participant.tier?.toString() || '',
+        participant.eligibilityScore?.toString() || '',
+        participant.isEligible ? 'true' : 'false',
+        participant.isWinner ? 'true' : 'false',
+        'false', // is_blacklisted - blacklisted wallets are excluded from participants table
+        prizeTierWon,
+        prizeAmount,
+        payouts.t1?.toString() || '',
+        payouts.t2?.toString() || '',
+        payouts.t3?.toString() || '',
+        payouts.t4?.toString() || '',
+        txSignature,
+        solscanUrl,
+        ataAddress,
+        round.swapToLotto ? 'true' : 'false',
+        round.swapRouteId || '',
+        round.swapSlippage?.toString() || ''
+      ])
+    }
+
+    // Generate CSV
+    const csv = [headers, ...rows]
+      .map((row) => row.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(','))
+      .join('\n')
+
+    // Filename: solotto_round_{date}_{roundId-first8}.csv
+    const dateStr = round.drawingDate
+      ? round.drawingDate.toISOString().split('T')[0]
+      : round.createdAt.toISOString().split('T')[0]
+    const roundIdShort = round.id.slice(0, 8)
+    const filename = `solotto_round_${dateStr}_${roundIdShort}_full.csv`
+
+    res.setHeader('Content-Type', 'text/csv')
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`)
+    return res.send(csv)
+  } catch (e) {
+    console.error('GET /history/export/round/:id/full failed', e)
+    return res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
+export default router
+

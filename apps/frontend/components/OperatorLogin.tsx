@@ -31,29 +31,29 @@ export default function OperatorLogin() {
   }
 
   return (
-    <div className="my-4 relative">
+    <div className="relative">
       {jwt ? (
         <button
           onClick={() => setJwt(null)}
-          className="rounded bg-gradient-to-br from-green-500 to-emerald-500 px-5 py-2 text-sm font-semibold text-night shadow-glow hover:brightness-110"
+          className="rounded-lg bg-gradient-to-br from-green-500 to-emerald-500 px-3 sm:px-4 md:px-5 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold text-white shadow-lg hover:brightness-110 transition-all whitespace-nowrap"
         >
           Logged in • Logout
         </button>
       ) : (
         <button
           onClick={() => setOpen(true)}
-          className="rounded bg-gradient-to-br from-purple-500 to-cyan-500 px-5 py-2 text-sm font-semibold text-night shadow-glow hover:brightness-110"
+          className="rounded-lg bg-gradient-to-br from-purple-500 to-cyan-500 px-3 sm:px-4 md:px-5 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold text-white shadow-lg hover:brightness-110 transition-all whitespace-nowrap"
         >
           Authenticate as Operator
         </button>
       )}
 
       {open && (
-        <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-sm rounded-2xl border border-primary/25 bg-night-900 p-6 text-slate-100 shadow-xl">
-            <div className="mb-4 text-center">
+        <div className="fixed inset-0 z-[2000] flex items-start justify-end bg-black/60 backdrop-blur-sm p-4 pt-24 sm:pt-28 md:pt-32">
+          <div className="w-full max-w-sm rounded-2xl border border-primary/25 bg-night-900 p-6 text-slate-100 shadow-2xl">
+            <div className="mb-4 text-left">
               <h3 className="text-lg font-semibold text-primary">Operator Login</h3>
-              <p className="text-xs text-slate-400">Enter your email and password</p>
+              <p className="text-xs text-slate-400 mt-1">Enter your email and password</p>
             </div>
             <form onSubmit={onSubmit} className="space-y-4">
               <div>
@@ -63,7 +63,7 @@ export default function OperatorLogin() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full rounded-lg border border-primary/25 bg-night-800 px-4 py-2.5 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/40"
-                  placeholder="you@example.com"
+                  placeholder="operator@localhost"
                   required
                 />
               </div>
@@ -79,18 +79,18 @@ export default function OperatorLogin() {
                 />
               </div>
               {error && <div className="text-red-400 text-sm">{error}</div>}
-              <div className="mt-1 flex items-center justify-end gap-2">
+              <div className="flex items-center justify-end gap-2 pt-2">
                 <button
                   type="button"
                   onClick={() => setOpen(false)}
-                  className="rounded-lg border border-primary/25 px-3 py-1.5 text-xs text-slate-200 hover:bg-night-800"
+                  className="rounded-lg border border-primary/25 px-4 py-2 text-sm text-slate-200 hover:bg-night-800 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={loading}
-                  className="rounded-lg bg-badge-gradient px-3.5 py-1.5 text-xs font-semibold text-white shadow-md disabled:opacity-60"
+                  className="rounded-lg bg-badge-gradient px-4 py-2 text-sm font-semibold text-white shadow-md disabled:opacity-60 hover:brightness-110 transition-all"
                 >
                   {loading ? 'Signing in…' : 'Sign in'}
                 </button>

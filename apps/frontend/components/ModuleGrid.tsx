@@ -9,10 +9,10 @@ import SnapshotForm from '@/components/SnapshotForm';
 import DrawingForm from '@/components/DrawingForm';
 import HarvestModule from '@/components/HarvestModule';
 import DistributionModule from '@/components/DistributionModule';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useAuthStore } from '@/hooks/useAuthStore';
 import { useModuleStore } from '@/hooks/useModuleStore';
-import { BarChart3, Gift, Puzzle, Users, Copy, Coins, History as HistoryIcon } from 'lucide-react';
+import { BarChart3, Gift, Puzzle, Users, Coins, History as HistoryIcon, RotateCcw } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 type Metric = {
@@ -48,7 +48,7 @@ const modules: ModuleInfo[] = [
   {
     key: 'drawing',
     name: '3. Drawing',
-    description: 'Execute VRF-backed random selection with deterministic audit trails.',
+    description: 'Execute crypto-secure random selection with deterministic audit trails.',
     href: '/dashboard/drawing',
     icon: BarChart3,
   },
@@ -82,13 +82,13 @@ export function ModuleGrid() {
   const controlSubmitted = useModuleStore((state) => state.controlSubmitted);
   const participantCounts = useModuleStore((state) => state.participantCounts);
   const drawingEnabled = useModuleStore((state) => state.drawingEnabled);
-  const winners = useModuleStore((state) => state.winners);
-  const distributionEnabled = useModuleStore((state) => state.distributionEnabled);
   const harvestStatus = useModuleStore((state) => state.harvestStatus);
   const snapshotStatus = useModuleStore((state) => state.snapshotStatus);
   const drawingStatus = useModuleStore((state) => state.drawingStatus);
-  const prizePoolSol = useModuleStore((state) => state.prizePoolSol);
   const allocations = useModuleStore((state) => state.allocations);
+  const distributionStatus = useModuleStore((state) => state.distributionStatus);
+  const isRestoredSession = useModuleStore((state) => state.isRestoredSession);
+  const setRestoredSession = useModuleStore((state) => state.setRestoredSession);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({
     control: false,
     snapshot: false,
@@ -107,11 +107,26 @@ export function ModuleGrid() {
     history: false,
   })
 
+  const historyRounds = useModuleStore((state) => state.historyRounds)
+  const setHistoryRoundsFromApi = useModuleStore((state) => state.setHistoryRoundsFromApi)
+
+  const fetchHistoryRounds = useCallback(async () => {
+    try {
+      const res = await fetch('/api/history/rounds?page=1&size=4')
+      const data = await res.json()
+      setHistoryRoundsFromApi(data.rounds || [])
+    } catch (_) {}
+  }, [setHistoryRoundsFromApi])
+
   const openAndPulse = (key: keyof typeof highlight) => {
     setExpanded((s) => ({ ...s, [key]: true }))
     setHighlight((h) => ({ ...h, [key]: true }))
     setTimeout(() => setHighlight((h) => ({ ...h, [key]: false })), 2200)
   }
+
+  useEffect(() => {
+    fetchHistoryRounds()
+  }, [fetchHistoryRounds])
 
   // Auto-expand subsequent cards on successful transitions
   useEffect(() => {
@@ -138,6 +153,13 @@ export function ModuleGrid() {
     }
   }, [harvestStatus])
 
+  useEffect(() => {
+    if (distributionStatus === 'released') {
+      fetchHistoryRounds()
+      openAndPulse('history')
+    }
+  }, [distributionStatus, fetchHistoryRounds])
+
   const shorten = (addr?: string | null) => {
     if (!addr) return '—';
     if (addr.length <= 10) return addr;
@@ -145,7 +167,31 @@ export function ModuleGrid() {
   };
 
   return (
-    <section className="grid gap-6 md:grid-cols-2">
+    <>
+      {/* Session Restoration Banner */}
+      {isRestoredSession && (
+        <div className="mb-4 rounded-xl border border-blue-400/30 bg-blue-500/10 p-3 sm:p-4 flex items-start gap-3">
+          <RotateCcw className="h-5 w-5 text-blue-400 shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-blue-300">Session Restored</p>
+            <p className="mt-1 text-xs text-blue-300/80">
+              Your previous workflow state has been restored from this browser session. You can continue from where you left off.
+            </p>
+          </div>
+          <button
+            onClick={() => setRestoredSession(false)}
+            className="text-blue-400/60 hover:text-blue-400 transition-colors"
+            aria-label="Dismiss notification"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+      )}
+
+      <section className="grid gap-4 sm:gap-5 md:gap-6 md:grid-cols-2">
       {modules.map((module) => {
         const isControl = module.key === 'control';
         const isSnapshot = module.key === 'snapshot';
@@ -153,24 +199,24 @@ export function ModuleGrid() {
         return (
           <article
             key={module.name}
-            className="relative overflow-hidden rounded-3xl border border-primary/20 bg-panel-gradient p-6 md:p-8 shadow-panel backdrop-blur"
+            className="relative overflow-hidden rounded-2xl sm:rounded-3xl border border-primary/20 bg-panel-gradient p-4 sm:p-5 md:p-6 lg:p-8 shadow-panel backdrop-blur"
             id={`module-${module.key}`}
           >
             <div className="absolute -top-16 right-0 h-36 w-36 rounded-full bg-primary/15 blur-3xl" aria-hidden />
-            <div className={`relative z-20 flex items-center justify-between gap-3 ${highlight[module.key] ? 'animate-glow-pulse' : ''}`}>
-              <div className="flex items-center gap-3">
-                <module.icon className="h-7 w-7 rounded-xl bg-badge-gradient p-1.5 text-white" />
-                <h3 className="text-base md:text-lg font-semibold text-primary">{module.name}</h3>
+            <div className={`relative z-20 flex items-center justify-between gap-2 sm:gap-3 ${highlight[module.key] ? 'animate-glow-pulse' : ''}`}>
+              <div className="flex items-center gap-2 sm:gap-3">
+                <module.icon className="h-5 w-5 sm:h-6 sm:w-6 md:h-7 md:w-7 rounded-lg sm:rounded-xl bg-badge-gradient p-1 sm:p-1.5 text-white" />
+                <h3 className="text-sm sm:text-base md:text-lg font-semibold text-primary">{module.name}</h3>
               </div>
               <button
                 onClick={() => setExpanded((s) => ({ ...s, [module.key]: !s[module.key] }))}
-                className="rounded-md border border-primary/30 bg-night-800 px-3 py-1 text-xs text-primary"
+                className="rounded-md border border-primary/30 bg-night-800 px-2 sm:px-3 py-1 text-[10px] sm:text-xs text-primary shrink-0"
                 aria-label={expanded[module.key] ? 'Collapse section' : 'Expand section'}
               >
                 {expanded[module.key] ? 'Collapse' : 'Expand'}
               </button>
             </div>
-            <p className="mt-3 text-xs md:text-sm text-slate-300">{module.description}</p>
+            <p className="mt-2 sm:mt-3 text-[10px] sm:text-xs md:text-sm text-slate-300">{module.description}</p>
 
             <div className={expanded[module.key] ? '' : 'hidden'}>
             {/* Metrics Display */}
@@ -188,9 +234,9 @@ export function ModuleGrid() {
                   if (module.key === 'harvest') {
                     return [
                       { label: 'Tier 1 (40%)', value: formatSol(allocations.t1 || 0) },
-                      { label: 'Tier 2 (25%)', value: formatSol(allocations.t2 || 0) },
+                      { label: 'Tier 2 (30%)', value: formatSol(allocations.t2 || 0) },
                       { label: 'Tier 3 (20%)', value: formatSol(allocations.t3 || 0) },
-                      { label: 'Tier 4 (15%)', value: formatSol(allocations.t4 || 0) },
+                      { label: 'Tier 4 (10%)', value: formatSol(allocations.t4 || 0) },
                     ]
                   }
                   return module.metrics || []
@@ -206,33 +252,46 @@ export function ModuleGrid() {
             {/* History preview list */}
             {module.key === 'history' && (
               <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
-                {[
-                  { id: 'round_abcd1234', drawingDate: '2025-01-09T18:00:00Z', prize: '89.215 SOL', winners: 4, status: 'Released' },
-                  { id: 'round_efgh5678', drawingDate: '2024-12-31T18:00:00Z', prize: '76.532 SOL', winners: 4, status: 'Released' },
-                  { id: 'round_ijkl9012', drawingDate: '2024-12-24T18:00:00Z', prize: '92.004 SOL', winners: 4, status: 'Released' },
-                  { id: 'round_mnop3456', drawingDate: '2024-12-17T18:00:00Z', prize: '81.777 SOL', winners: 4, status: 'Released' },
-                ].map((r) => (
-                  <div key={r.id} className="rounded-lg border border-primary/20 bg-night-900/60 p-3">
-                    <div className="flex items-center justify-between">
-                      <div className="text-primary font-semibold">{r.id}</div>
-                      <span className="rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[10px] text-primary">{r.status}</span>
+                {historyRounds.length > 0 ? (
+                  historyRounds.map((r) => (
+                    <div key={r.id} className="rounded-lg border border-primary/20 bg-night-900/60 p-3">
+                      <div className="flex items-center justify-between">
+                        <div className="text-primary font-semibold text-[10px] sm:text-xs">{shorten(r.id)}</div>
+                        <span className="rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[10px] text-primary">Released</span>
+                      </div>
+                      <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
+                        <div>
+                          <div className="text-slate-400">Drawing Date</div>
+                          <div className="text-slate-200">{r.drawingDate ? new Date(r.drawingDate).toLocaleDateString() : '—'}</div>
+                        </div>
+                        <div>
+                          <div className="text-slate-400">Prize Pool</div>
+                          <div className="text-primary font-semibold">{formatSol(r.prizePoolSol || 0)}</div>
+                        </div>
+                        <div>
+                          <div className="text-slate-400">Winners</div>
+                          <div className="text-slate-200">{(() => {
+                            const wins = r.tierWinners || {}
+                            return Object.values(wins).filter(Boolean).length || '—'
+                          })()}</div>
+                        </div>
+                      </div>
+                      <div className="mt-2">
+                        <button
+                          onClick={() => {
+                            const url = `/api/history/export/round/${r.id}/full`
+                            window.location.href = url
+                          }}
+                          className="w-full rounded-md bg-badge-gradient px-2 py-1.5 text-[10px] sm:text-xs font-semibold text-white shadow-sm hover:opacity-90 transition-opacity"
+                        >
+                          Export Full CSV
+                        </button>
+                      </div>
                     </div>
-                    <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
-                      <div>
-                        <div className="text-slate-400">Drawing Date</div>
-                        <div className="text-slate-200">{new Date(r.drawingDate).toLocaleDateString()}</div>
-                      </div>
-                      <div>
-                        <div className="text-slate-400">Prize Pool</div>
-                        <div className="text-primary font-semibold">{r.prize}</div>
-                      </div>
-                      <div>
-                        <div className="text-slate-400">Winners</div>
-                        <div className="text-slate-200">{r.winners}</div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                  ))
+                ) : (
+                  <p className="text-xs text-slate-400">No rounds available yet.</p>
+                )}
               </div>
             )}
 
@@ -245,7 +304,7 @@ export function ModuleGrid() {
 
             {/* Drawing ready state note */}
             {module.key === 'drawing' && drawingEnabled && (
-              <div className="mt-4 text-green-400 text-sm">Snapshot confirmed. Drawing enabled.</div>
+              <div className="mt-4 text-green-400 text-sm"></div>
             )}
 
             {/* Control Module Form (Visible always when enabled; overlay locks until login) */}
@@ -320,7 +379,8 @@ export function ModuleGrid() {
         );
       })}
     </section>
+    </>
   );
 }
 
-  const formatSol = (n: number) => `${n.toFixed(6)} SOL`
+const formatSol = (n: number) => `${n.toFixed(6)} SOL`
