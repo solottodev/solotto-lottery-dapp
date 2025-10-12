@@ -101,14 +101,35 @@ router.get('/export', async (_req, res) => {
   try {
     const rounds = await prismaRO.round.findMany({ orderBy: { createdAt: 'desc' } })
     const headers = [
-      'id UUID (PRIMARY KEY)','Start Date','End Date','Drawing Date','Distribution Date','Prize Pool (SOL)','Total Participants','Eligible Participants','Tier','Winner Address','Prize Amount','Transaction Hash'
+      'Round ID',
+      'Round Start Date',
+      'Round End Date',
+      'Drawing Date',
+      'Distribution Date',
+      'Prize Pool (SOL)',
+      'Prize Distribution %',
+      'Prize Source Wallet',
+      'Prize Source Balance (SOL)',
+      'Total Participants',
+      'Eligible Participants',
+      'Tier',
+      'Prize Tier Won',
+      'Wallet Address',
+      'Prize Amount (SOL)',
+      'Tier 1 Payout (SOL)',
+      'Tier 2 Payout (SOL)',
+      'Tier 3 Payout (SOL)',
+      'Tier 4 Payout (SOL)',
+      'Transaction Signature'
     ]
     const rows: string[][] = []
     for (const r of rounds) {
       const winners = (r.tierWinners as any) || {}
       const payouts = (r.tierPayouts as any) || {}
+      const txSignatures = (r.distributionTxSignatures as any) || []
       const tiers = ['t1','t2','t3','t4']
-      for (const t of tiers) {
+      for (let i = 0; i < tiers.length; i++) {
+        const t = tiers[i]
         rows.push([
           r.id,
           r.startDate?.toISOString?.() || '',
@@ -116,20 +137,33 @@ router.get('/export', async (_req, res) => {
           r.drawingDate?.toISOString?.() || '',
           r.distributionDate?.toISOString?.() || '',
           String(r.prizePoolSol ?? ''),
+          String(r.prizeDistributionPercent ?? ''),
+          r.prizeSourceWallet || '',
+          String(r.prizeSourceBalanceSol ?? ''),
           String(r.totalParticipants ?? 0),
           String(r.eligibleParticipants ?? 0),
           t.toUpperCase(),
+          winners?.[t] ? `TIER ${i + 1}` : '',
           winners?.[t] || '',
           payouts?.[t]?.toString?.() || '',
-          '',
+          String(payouts?.t1 ?? ''),
+          String(payouts?.t2 ?? ''),
+          String(payouts?.t3 ?? ''),
+          String(payouts?.t4 ?? ''),
+          txSignatures[i] || '',
         ])
       }
     }
     const csv = [headers, ...rows]
       .map((r) => r.map((v) => `"${String(v).replace(/"/g,'""')}"`).join(','))
       .join('\n')
+
+    // Generate filename with date: solotto_rounds_YYYY-MM-DD.csv
+    const dateStr = new Date().toISOString().split('T')[0]
+    const filename = `solotto_rounds_${dateStr}.csv`
+
     res.setHeader('Content-Type','text/csv')
-    res.setHeader('Content-Disposition','attachment; filename="solotto_history.csv"')
+    res.setHeader('Content-Disposition',`attachment; filename="${filename}"`)
     return res.send(csv)
   } catch (e) {
     console.error('GET /history/export failed', e)
@@ -141,22 +175,46 @@ router.get('/export', async (_req, res) => {
 router.get('/export/participants', async (_req, res) => {
   try {
     const participants = await prismaRO.participant.findMany({ include: { round: true } })
-    const headers = ['uuID','Wallet Address','Token Balance','Tier','Eligibility Score','Is Eligible','Is Winner','Drawing Date']
+    const headers = [
+      'Round ID',
+      'Participant ID',
+      'Wallet Address',
+      'Round Start Date',
+      'Round End Date',
+      'Drawing Date',
+      'Token LOTTO Balance',
+      'Token USD Balance',
+      'Tier',
+      'Eligibility Score',
+      'Is Eligible',
+      'Is Winner',
+      'Is Blacklisted'
+    ]
     const rows = participants.map((p) => [
+      p.roundId,
       p.id,
       p.wallet,
-      p.tokenBalance?.toString?.() || '',
-      p.tier?.toString?.() || '',
-      p.eligibilityScore?.toString?.() || '',
-      (p as any).isEligible ? 'true' : 'false',
-      p.isWinner ? 'true' : 'false',
+      p.round?.startDate?.toISOString?.() || '',
+      p.round?.endDate?.toISOString?.() || '',
       p.round?.drawingDate?.toISOString?.() || '',
+      (p as any).tokenLottoBalanceEnd?.toString?.() || '',
+      (p as any).tokenUsdBalance?.toString?.() || '',
+      p.tier?.toString?.() || '',
+      p.eligibilityScore?.toString?.() || '', // Trading activity %
+      (p as any).isEligible ? 'TRUE' : 'FALSE',
+      p.isWinner ? 'TRUE' : 'FALSE',
+      'FALSE', // Blacklisted wallets are excluded from participants table
     ])
     const csv = [headers, ...rows]
       .map((r) => r.map((v) => `"${String(v).replace(/"/g,'""')}"`).join(','))
       .join('\n')
+
+    // Generate filename with date: solotto_participants_YYYY-MM-DD.csv
+    const dateStr = new Date().toISOString().split('T')[0]
+    const filename = `solotto_participants_${dateStr}.csv`
+
     res.setHeader('Content-Type','text/csv')
-    res.setHeader('Content-Disposition','attachment; filename="solotto_participants.csv"')
+    res.setHeader('Content-Disposition',`attachment; filename="${filename}"`)
     return res.send(csv)
   } catch (e) {
     console.error('GET /history/export/participants failed', e)
@@ -229,7 +287,9 @@ router.post('/admin/import/json', requireJwt as any, async (req, res) => {
         update: {
           roundId: p.roundId,
           wallet: p.wallet,
-          tokenBalance: p.tokenBalance,
+          tokenLottoBalanceStart: p.tokenLottoBalanceStart,
+          tokenLottoBalanceEnd: p.tokenLottoBalanceEnd,
+          tokenUsdBalance: p.tokenUsdBalance,
           tier: p.tier,
           eligibilityScore: p.eligibilityScore,
           isWinner: !!p.isWinner,
@@ -238,7 +298,9 @@ router.post('/admin/import/json', requireJwt as any, async (req, res) => {
           id: p.id,
           roundId: p.roundId,
           wallet: p.wallet,
-          tokenBalance: p.tokenBalance ?? null,
+          tokenLottoBalanceStart: p.tokenLottoBalanceStart ?? null,
+          tokenLottoBalanceEnd: p.tokenLottoBalanceEnd ?? null,
+          tokenUsdBalance: p.tokenUsdBalance ?? null,
           tier: p.tier ?? null,
           eligibilityScore: p.eligibilityScore ?? null,
           isWinner: !!p.isWinner,
@@ -333,9 +395,11 @@ router.get('/export/round/:id/full', async (req, res) => {
     const network = process.env.SOLANA_NETWORK || 'devnet'
     const cluster = network === 'mainnet-beta' ? '' : `?cluster=${network}`
 
-    // CSV Headers
+    // CSV Headers (matching source of truth.csv exactly)
     const headers = [
       'Round ID',
+      'Wallet Address',
+      'Participant ID',
       'Round Start Date',
       'Round End Date',
       'Drawing Date',
@@ -355,9 +419,8 @@ router.get('/export/round/:id/full', async (req, res) => {
       'Drawing Seed',
       'Drawing Blockhash',
       'Drawing Slot',
-      'Participant ID',
-      'Wallet Address',
-      'Token Balance',
+      'Token LOTTO Balance',
+      'Token USD Balance',
       'Tier',
       'Eligibility Score',
       'Is Eligible',
@@ -407,6 +470,8 @@ router.get('/export/round/:id/full', async (req, res) => {
 
       rows.push([
         round.id,
+        participant.wallet,
+        participant.id,
         round.startDate?.toISOString() || '',
         round.endDate?.toISOString() || '',
         round.drawingDate?.toISOString() || '',
@@ -426,14 +491,13 @@ router.get('/export/round/:id/full', async (req, res) => {
         drawing?.seed || '',
         drawing?.blockhash || '',
         drawing?.slot?.toString() || '',
-        participant.id,
-        participant.wallet,
-        participant.tokenBalance?.toString() || '',
+        (participant as any).tokenLottoBalanceEnd?.toString() || '',
+        (participant as any).tokenUsdBalance?.toString() || '',
         participant.tier?.toString() || '',
-        participant.eligibilityScore?.toString() || '',
-        participant.isEligible ? 'true' : 'false',
-        participant.isWinner ? 'true' : 'false',
-        'false', // is_blacklisted - blacklisted wallets are excluded from participants table
+        participant.eligibilityScore?.toString() || '', // Trading activity %
+        participant.isEligible ? 'TRUE' : 'FALSE',
+        participant.isWinner ? 'TRUE' : 'FALSE',
+        'FALSE', // is_blacklisted - blacklisted wallets are excluded from participants table
         prizeTierWon,
         prizeAmount,
         payouts.t1?.toString() || '',
@@ -443,7 +507,7 @@ router.get('/export/round/:id/full', async (req, res) => {
         txSignature,
         solscanUrl,
         ataAddress,
-        round.swapToLotto ? 'true' : 'false',
+        round.swapToLotto ? 'TRUE' : 'FALSE',
         round.swapRouteId || '',
         round.swapSlippage?.toString() || ''
       ])

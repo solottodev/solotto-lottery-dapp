@@ -7,7 +7,9 @@ import prisma from '../prisma';
 
 export interface SnapshotParticipant {
   wallet: string;
-  tokenBalance: number;
+  tokenLottoBalanceStart: number; // $LOTTO tokens at round START
+  tokenLottoBalanceEnd: number;   // $LOTTO tokens at round END
+  tokenUsdBalance: number;        // USD value at snapshot END time
   tier: number;
 }
 
@@ -26,7 +28,11 @@ export interface SnapshotResult {
 /**
  * Service for creating token holder snapshots
  *
- * Tier Distribution:
+ * Eligibility Requirements:
+ * 1. USD Balance: Must hold ≥$50 USD worth of $LOTTO at snapshot time
+ * 2. Trading Activity: Token balance must change by ≥50% during round period
+ *
+ * Tier Distribution (based on END balance):
  * - Tier 1: Top 5% of holders
  * - Tier 2: Next 15% (5% - 20%)
  * - Tier 3: Next 30% (20% - 50%)
@@ -164,9 +170,23 @@ export class SnapshotService {
         tier = 4;
       }
 
+      // TODO: Implement actual balance fetching and USD calculation
+      // CURRENT LIMITATION: We only capture END balance, not START balance
+      // For production:
+      // 1. Fetch START balance: Query blockchain at round.startDate
+      // 2. Fetch END balance: Query blockchain at round.endDate (current behavior)
+      // 3. Calculate USD value: tokenUsdBalance = endBalance * currentLottoPrice
+      //
+      // For now, using END balance for both start/end (won't calculate trade % correctly)
+      const tokenLottoBalanceStart = holder.balanceUi; // TEMPORARY: Should be fetched at round START
+      const tokenLottoBalanceEnd = holder.balanceUi;   // Current balance at snapshot time
+      const tokenUsdBalance = holder.balanceUi;        // TEMPORARY: Should be calculated with real price
+
       return {
         wallet: holder.owner,
-        tokenBalance: holder.balanceUi,
+        tokenLottoBalanceStart,
+        tokenLottoBalanceEnd,
+        tokenUsdBalance,
         tier,
       };
     });
@@ -296,9 +316,11 @@ export class SnapshotService {
         data: batch.map(p => ({
           roundId,
           wallet: p.wallet,
-          tokenBalance: p.tokenBalance,
+          tokenLottoBalanceStart: p.tokenLottoBalanceStart,
+          tokenLottoBalanceEnd: p.tokenLottoBalanceEnd,
+          tokenUsdBalance: p.tokenUsdBalance,
           tier: p.tier,
-          eligibilityScore: null, // Will be calculated later
+          eligibilityScore: null, // Will be calculated in confirm step as trading %
           isEligible: false, // Will be set in confirm step
           isWinner: false,
         })),

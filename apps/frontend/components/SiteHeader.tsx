@@ -6,6 +6,7 @@ import { WalletConnect } from "@/components/WalletConnect";
 import { usePrizePool } from "@/hooks/usePrizePool";
 
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:4000";
+const backendGithub = "https://github.com/solottodev/solotto-lottery-dapp/tree/main/apps/backend";
 
 export default function SiteHeader() {
   const { prizePool, loading, error } = usePrizePool();
@@ -18,7 +19,7 @@ export default function SiteHeader() {
   };
 
   const statusIndicators = [
-    { label: "Backend", value: backendUrl },
+    { label: "Backend", value: "View Source", link: backendGithub, title: backendUrl },
     { label: "Prize Pool", value: getPrizePoolValue() },
     { label: "Status", value: "Ready" },
   ];
@@ -47,16 +48,35 @@ export default function SiteHeader() {
             Decentralized Lottery: On-Chain & Auditable Automation
           </p>
           <div className="flex flex-wrap items-center justify-center gap-1.5 md:gap-2 text-[0.65rem] sm:text-[0.7rem] md:text-xs text-slate-200">
-            {statusIndicators.map((indicator) => (
-              <span
-                key={indicator.label}
-                className="inline-flex items-center gap-1 sm:gap-1.5 rounded-full border border-primary/20 bg-night-900/80 px-1.5 py-[2px] sm:px-2 md:px-3 md:py-1 shadow-[0_1px_6px_rgba(10,30,70,0.25)] backdrop-blur"
-              >
-                <span className="h-1.5 w-1.5 md:h-2 md:w-2 rounded-full bg-primary" />
-                <span className="font-medium text-primary">{indicator.label}:</span>
-                <span className="text-slate-300 truncate max-w-[100px] sm:max-w-none">{indicator.value}</span>
-              </span>
-            ))}
+            {statusIndicators.map((indicator) => {
+              const content = (
+                <>
+                  <span className="h-1.5 w-1.5 md:h-2 md:w-2 rounded-full bg-primary" />
+                  <span className="font-medium text-primary">{indicator.label}:</span>
+                  <span className="text-slate-300 truncate max-w-[100px] sm:max-w-none">{indicator.value}</span>
+                </>
+              );
+
+              return indicator.link ? (
+                <a
+                  key={indicator.label}
+                  href={indicator.link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title={indicator.title}
+                  className="inline-flex items-center gap-1 sm:gap-1.5 rounded-full border border-primary/20 bg-night-900/80 px-1.5 py-[2px] sm:px-2 md:px-3 md:py-1 shadow-[0_1px_6px_rgba(10,30,70,0.25)] backdrop-blur hover:border-primary/40 hover:bg-night-800/90 transition-colors cursor-pointer"
+                >
+                  {content}
+                </a>
+              ) : (
+                <span
+                  key={indicator.label}
+                  className="inline-flex items-center gap-1 sm:gap-1.5 rounded-full border border-primary/20 bg-night-900/80 px-1.5 py-[2px] sm:px-2 md:px-3 md:py-1 shadow-[0_1px_6px_rgba(10,30,70,0.25)] backdrop-blur"
+                >
+                  {content}
+                </span>
+              );
+            })}
           </div>
         </div>
 

@@ -117,37 +117,50 @@ router.post('/confirm', requireJwt, async (req, res) => {
     const allParticipants = await prisma.participant.findMany({ where: { roundId: snap.roundId } })
 
     // Calculate eligibility for each participant
-    // tokenBalance represents $LOTTO token amount, eligibilityScore represents percent traded
+    // Two-part eligibility check:
+    // 1. USD Balance: tokenUsdBalance >= minUsdLotto (e.g., $50)
+    // 2. Trading Activity: Balance change >= minTradePercent (e.g., 50%)
     for (const p of allParticipants) {
-      const lottoValue = p.tokenBalance ?? 0
-      let tradePercent = p.eligibilityScore ?? 0
+      const usdBalance = (p as any).tokenUsdBalance ?? (p as any).tokenLottoBalanceEnd ?? 0
+      const startBalance = (p as any).tokenLottoBalanceStart ?? 0
+      const endBalance = (p as any).tokenLottoBalanceEnd ?? 0
 
-      // ⚠️ DEVNET TESTING ONLY - TODO: IMPLEMENT BEFORE MAINNET GO-LIVE ⚠️
-      //
-      // For devnet testing: Assume all token holders have 100% trade activity
-      // since we don't have historical balance data or DEX trading records yet.
-      //
-      // BEFORE MAINNET LAUNCH, IMPLEMENT:
-      // 1. Fetch historical token balances at snapshot START and END
-      // 2. Calculate trade % = ((endBalance - startBalance) / startBalance) * 100
-      // 3. Query Jupiter/DEX APIs for actual trading volume during period
-      // 4. Verify wallet had trading activity (not just holding)
-      //
-      // See: PHASE_1_PROGRESS.md - Task "Trading Activity Tracking"
-      if (p.eligibilityScore === null && lottoValue > 0) {
-        tradePercent = 100 // DEVNET ONLY: Assume 100% for testing
-        console.log(`  🧪 DEVNET: ${p.wallet.slice(0, 8)}... assumed 100% trade activity (${lottoValue} tokens)`)
+      // Calculate trading activity percentage
+      // tradePercent = |((end - start) / start)| × 100
+      let tradePercent = 0
+      if (startBalance > 0) {
+        tradePercent = Math.abs((endBalance - startBalance) / startBalance) * 100
+      } else if (endBalance > 0) {
+        // If start balance is 0 but end balance exists, treat as 100% increase
+        tradePercent = 100
       }
 
-      const isEligible = lottoValue >= minUsdLotto && tradePercent >= minTradePercent
+      // ⚠️ DEVNET TESTING NOTE ⚠️
+      // Currently, startBalance === endBalance (we don't fetch historical data yet)
+      // So tradePercent will be 0 for most wallets unless we implement:
+      // 1. Historical balance fetching at round START date
+      // 2. Current balance fetching at round END date
+      //
+      // For devnet testing, if eligibilityScore is null and balance exists, assume 100%
+      if (p.eligibilityScore === null && endBalance > 0) {
+        tradePercent = 100 // DEVNET ONLY: Assume trading activity
+        console.log(`  🧪 DEVNET: ${p.wallet.slice(0, 8)}... assumed 100% trade activity`)
+      } else {
+        console.log(`  📊 ${p.wallet.slice(0, 8)}... calculated ${tradePercent.toFixed(2)}% trade activity (${startBalance} → ${endBalance})`)
+      }
 
-      console.log(`  ${isEligible ? '✅' : '❌'} ${p.wallet.slice(0, 8)}... - Balance: ${lottoValue}, Trade%: ${tradePercent}%, Eligible: ${isEligible}`)
+      // Check both eligibility criteria
+      const meetsUsdThreshold = usdBalance >= minUsdLotto
+      const meetsTradeThreshold = tradePercent >= minTradePercent
+      const isEligible = meetsUsdThreshold && meetsTradeThreshold
+
+      console.log(`  ${isEligible ? '✅' : '❌'} ${p.wallet.slice(0, 8)}... - USD: $${usdBalance.toFixed(2)} ${meetsUsdThreshold ? '✓' : '✗'}, Trade: ${tradePercent.toFixed(1)}% ${meetsTradeThreshold ? '✓' : '✗'}`)
 
       await prisma.participant.update({
         where: { id: p.id },
         data: {
           isEligible,
-          eligibilityScore: tradePercent, // Store for audit
+          eligibilityScore: tradePercent, // Store calculated trading % for audit
         },
       })
     }
@@ -208,7 +221,7 @@ router.get('/:snapshotId/participants', requireJwt, async (req, res) => {
       where: { roundId: snap.roundId },
       orderBy: [
         { tier: 'asc' },
-        { tokenBalance: 'desc' }
+        { tokenLottoBalanceEnd: 'desc' }
       ]
     })
 
@@ -218,9 +231,10 @@ router.get('/:snapshotId/participants', requireJwt, async (req, res) => {
     const participantList = participants.map(p => ({
       roundId: snap.roundId,
       wallet: p.wallet,
-      currentLottoUsd: p.tokenBalance, // For now, using token amount as USD (will be calculated in production)
+      tokenLottoBalance: (p as any).tokenLottoBalanceEnd ?? 0,
+      tokenUsdBalance: (p as any).tokenUsdBalance ?? 0,
       assignedTier: p.tier,
-      percentTraded: p.eligibilityScore ?? 0,
+      tradingActivityPercent: p.eligibilityScore ?? 0, // Calculated from start/end balances
       isEligible: p.isEligible,
       isWinner: p.isWinner,
       drawingDate: round?.drawingDate ?? null,
@@ -253,7 +267,7 @@ router.get('/:snapshotId/participants/export', requireJwt, async (req, res) => {
       where: { roundId: snap.roundId },
       orderBy: [
         { tier: 'asc' },
-        { tokenBalance: 'desc' }
+        { tokenLottoBalanceEnd: 'desc' }
       ]
     })
 
@@ -264,26 +278,36 @@ router.get('/:snapshotId/participants/export', requireJwt, async (req, res) => {
     const headers = [
       'Round ID',
       'Wallet Address',
-      'Current $LOTTO (USD)',
-      'Assigned Tier',
-      'Percent Traded',
+      'Participant ID',
+      'Round Start Date',
+      'Round End Date',
+      'Snapshot ID',
+      'Snapshot Started At',
+      'Snapshot Completed At',
+      'Token LOTTO Balance',
+      'Token USD Balance',
+      'Tier',
+      'Eligibility Score',
       'Is Eligible',
-      'Is Winner',
-      'Drawing Date',
-      'Distribution Transaction'
+      'Is Blacklisted'
     ]
 
     const rows = participants.map(p => {
       return [
         snap.roundId,
         p.wallet,
-        p.tokenBalance ?? 0, // For now, using token amount (will calculate USD in production)
+        p.id,
+        round?.startDate?.toISOString() || '',
+        round?.endDate?.toISOString() || '',
+        snap.id,
+        snap.startedAt?.toISOString() || '',
+        snap.completedAt?.toISOString() || '',
+        (p as any).tokenLottoBalanceEnd ?? 0, // END balance determines tier
+        (p as any).tokenUsdBalance ?? 0,
         p.tier ?? 0,
-        p.eligibilityScore ?? 0,
-        p.isEligible ? 'Yes' : 'No',
-        p.isWinner ? 'Yes' : 'No',
-        round?.drawingDate ? new Date(round.drawingDate).toISOString() : '',
-        '' // Will be populated after distribution
+        p.eligibilityScore ?? 0, // Trading activity %
+        p.isEligible ? 'TRUE' : 'FALSE',
+        'FALSE' // Blacklisted wallets are excluded from participants table
       ]
     })
 
@@ -300,9 +324,15 @@ router.get('/:snapshotId/participants/export', requireJwt, async (req, res) => {
       }).join(','))
     ].join('\n')
 
+    // Generate filename with date: solotto_snapshot_YYYY-MM-DD.csv
+    const dateStr = snap.completedAt
+      ? snap.completedAt.toISOString().split('T')[0]
+      : new Date().toISOString().split('T')[0]
+    const filename = `solotto_snapshot_${dateStr}.csv`
+
     // Set response headers for file download
     res.setHeader('Content-Type', 'text/csv')
-    res.setHeader('Content-Disposition', `attachment; filename="snapshot-${snapshotId}-participants.csv"`)
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`)
 
     return res.send(csvContent)
   } catch (e) {

@@ -80,16 +80,18 @@ model Round {
 }
 
 model Participant {
-  id               String   @id @default(uuid())
-  roundId          String
-  wallet           String
-  tokenBalance     Float?
-  tier             Int?
-  eligibilityScore Float?
-  isEligible       Boolean  @default(false)
-  isWinner         Boolean  @default(false)
-  createdAt        DateTime @default(now())
-  round            Round    @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  id                      String   @id @default(uuid())
+  roundId                 String
+  wallet                  String
+  tokenLottoBalanceStart  Float? // $LOTTO token amount at round START (for trade % calculation)
+  tokenLottoBalanceEnd    Float? // $LOTTO token amount at round END (for trade % calculation)
+  tokenUsdBalance         Float? // USD value of tokens at snapshot END time (for $50 min eligibility)
+  tier                    Int?
+  eligibilityScore        Float? // Trading activity percentage (calculated from start/end balances)
+  isEligible              Boolean  @default(false)
+  isWinner                Boolean  @default(false)
+  createdAt               DateTime @default(now())
+  round                   Round    @relation(fields: [roundId], references: [id], onDelete: Cascade)
 
   @@index([wallet])
   @@index([createdAt])

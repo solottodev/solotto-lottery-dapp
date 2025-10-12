@@ -120,19 +120,19 @@ export class DrawingService {
     const eligibleByTier = await Promise.all([
       prisma.participant.findMany({
         where: { roundId, tier: 1, isEligible: true },
-        select: { id: true, wallet: true, tokenBalance: true },
+        select: { id: true, wallet: true, tokenLottoBalanceEnd: true },
       }),
       prisma.participant.findMany({
         where: { roundId, tier: 2, isEligible: true },
-        select: { id: true, wallet: true, tokenBalance: true },
+        select: { id: true, wallet: true, tokenLottoBalanceEnd: true },
       }),
       prisma.participant.findMany({
         where: { roundId, tier: 3, isEligible: true },
-        select: { id: true, wallet: true, tokenBalance: true },
+        select: { id: true, wallet: true, tokenLottoBalanceEnd: true },
       }),
       prisma.participant.findMany({
         where: { roundId, tier: 4, isEligible: true },
-        select: { id: true, wallet: true, tokenBalance: true },
+        select: { id: true, wallet: true, tokenLottoBalanceEnd: true },
       }),
     ]);
 
