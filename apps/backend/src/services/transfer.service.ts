@@ -2,14 +2,11 @@
 // Service for handling SOL and SPL token transfers on Solana
 
 import {
-  Connection,
   PublicKey,
   Transaction,
   SystemProgram,
   LAMPORTS_PER_SOL,
-  TransactionInstruction,
   Keypair,
-  sendAndConfirmTransaction,
   ComputeBudgetProgram,
 } from '@solana/web3.js';
 import {
@@ -248,30 +245,94 @@ class TransferService {
         )
       );
 
-      // Send and confirm
-      const signature = await sendAndConfirmTransaction(
-        connection,
-        transaction,
-        [fromKeypair],
-        {
-          commitment: 'confirmed',
-          maxRetries: 3,
+      // Send and confirm transaction with fresh blockhash and proper retry logic
+      let lastError: any = null;
+      const maxAttempts = 3;
+
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+          console.log(`  Attempt ${attempt}/${maxAttempts}...`);
+
+          // ✅ Get FRESH blockhash for EVERY transaction attempt
+          const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('finalized');
+          transaction.recentBlockhash = blockhash;
+          transaction.lastValidBlockHeight = lastValidBlockHeight;
+          transaction.feePayer = fromKeypair.publicKey;
+
+          // Sign transaction with fresh blockhash
+          transaction.sign(fromKeypair);
+
+          // Send transaction (skip preflight for faster submission on devnet)
+          const signature = await connection.sendRawTransaction(transaction.serialize(), {
+            skipPreflight: true, // ✅ Skip preflight for faster devnet submission
+            maxRetries: 0, // We handle retries manually
+          });
+
+          console.log(`  Transaction sent: ${signature}`);
+
+          // ✅ Poll for confirmation using getSignatureStatuses (more reliable on devnet)
+          const startTime = Date.now();
+          const timeout = 60000; // 60 second timeout
+          let confirmed = false;
+
+          while (!confirmed && Date.now() - startTime < timeout) {
+            try {
+              const statuses = await connection.getSignatureStatuses([signature]);
+              const status = statuses.value[0];
+
+              if (status) {
+                if (status.err) {
+                  throw new Error(`Transaction failed: ${JSON.stringify(status.err)}`);
+                }
+                if (status.confirmationStatus === 'confirmed' || status.confirmationStatus === 'finalized') {
+                  confirmed = true;
+                  console.log(`✅ Token transfer confirmed: ${signature} (${status.confirmationStatus})`);
+                  break;
+                }
+              }
+            } catch (pollError) {
+              // Ignore polling errors, continue trying
+            }
+
+            // Wait 2 seconds before next poll
+            await new Promise(resolve => setTimeout(resolve, 2000));
+          }
+
+          if (!confirmed) {
+            throw new Error(`Transaction ${signature} not confirmed within timeout`);
+          }
+
+          return {
+            signature,
+            recipient: toAddress,
+            amount: amountTokens,
+            tokenMint: tokenMintAddress,
+            ataAddress: toTokenAccount.address.toBase58(),
+            confirmationStatus: 'confirmed',
+          };
+        } catch (error) {
+          lastError = error;
+          const errorMsg = error instanceof Error ? error.message : String(error);
+          console.error(`  ❌ Attempt ${attempt} failed:`, errorMsg);
+
+          // Check if it's a blockhash expired error
+          if (errorMsg.includes('block height exceeded') || errorMsg.includes('expired')) {
+            console.log(`  🔄 Blockhash expired, will retry with fresh blockhash...`);
+          }
+
+          if (attempt < maxAttempts) {
+            const waitTime = attempt * 2000; // 2s, 4s between retries
+            console.log(`  Waiting ${waitTime}ms before retry...`);
+            await new Promise(resolve => setTimeout(resolve, waitTime));
+          }
         }
-      );
+      }
 
-      console.log(`✅ Token transfer confirmed: ${signature}`);
-
-      return {
-        signature,
-        recipient: toAddress,
-        amount: amountTokens,
-        tokenMint: tokenMintAddress,
-        ataAddress: toTokenAccount.address.toBase58(),
-        confirmationStatus: 'confirmed',
-      };
+      console.error(`❌ Token transfer failed after ${maxAttempts} attempts`);
+      throw new Error(`Token transfer failed after ${maxAttempts} attempts: ${lastError instanceof Error ? lastError.message : String(lastError)}`);
     } catch (error) {
-      console.error(`❌ Token transfer failed:`, error);
-      throw new Error(`Token transfer failed: ${error instanceof Error ? error.message : String(error)}`);
+      console.error(`❌ Token transfer setup failed:`, error);
+      throw new Error(`Token transfer setup failed: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
