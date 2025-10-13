@@ -42,8 +42,23 @@ Deployment Actions for Solotto Lottery (Control Module)
 - **Why this exists**: This allows local E2E testing with pre-seeded wallet addresses without needing to run actual blockchain snapshots
 - **Production behavior**: Snapshots should query real on-chain wallet holders and create participants from actual blockchain data
 
-8) Post-Deploy Validation
+8) Dashboard Metrics Configuration
+- **IMPORTANT FOR MAINNET**: Dashboard statistics are now network-aware and filter by `SOLANA_NETWORK` environment variable.
+- All metrics (Total Rounds, SOL Distributed, Winners, Avg Prize Pool) are automatically calculated from the database.
+- **Mainnet Launch Action Required**:
+  - Set `SOLANA_NETWORK=mainnet-beta` in both backend and frontend environment variables
+  - This ensures dashboard metrics only count mainnet data, not devnet/testnet test data
+  - Devnet/testnet data will remain in the database but will be filtered out of mainnet statistics
+- Implementation details:
+  - Database: `Round` model now includes `network` field (defaults to "devnet")
+  - Backend: `/api/v1/history/stats` endpoint filters rounds by network
+  - Frontend: `/api/dashboard-stats` proxies backend stats with automatic refresh
+  - Network field is automatically set when creating rounds based on `SOLANA_NETWORK` env var
+- **Migration Note**: Existing devnet rounds have been backfilled with `network = 'devnet'` via Prisma migration
+
+9) Post-Deploy Validation
 - Verify operator login via email/password works (no wallet required).
 - Submit a control configuration and confirm it persists and is visible in the DB.
 - Confirm the frontend Control form is visible but locked until login, then becomes editable.
 - **Verify participant auto-copy is disabled** by checking that new rounds have 0 participants until real snapshot data is loaded.
+- **Verify dashboard metrics display correctly** and show network-specific data (devnet shows devnet stats, mainnet shows mainnet stats).

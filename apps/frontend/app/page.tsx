@@ -1,28 +1,44 @@
+'use client';
+
 import { ModuleGrid } from "@/components/ModuleGrid";
 import Link from "next/link";
-
-const statusIndicators = [
-  { label: "Backend", value: "http://localhost:8093" },
-  { label: "Prize Pool", value: "89.215 SOL" },
-  { label: "Status", value: "Ready" },
-];
-
-const stats = [
-  { label: "Total Rounds", value: "2", detail: "since genesis" },
-  { label: "Total SOL Distributed", value: "178.43", detail: "aggregate" },
-  { label: "Total Winners", value: "8", detail: "across tiers" },
-  { label: "Avg Prize Pool (SOL)", value: "89.22", detail: "per drawing" },
-];
+import { useDashboardStats } from "@/hooks/useDashboardStats";
 
 const workflow = ["Control", "Snapshot", "Drawing", "Harvest", "Distribution", "History & Audit Module"] as const;
 
 export default function HomePage() {
+  const { stats, loading, error } = useDashboardStats();
+
+  // Define stat cards structure
+  const statCards = [
+    {
+      label: "Total Lottery Rounds",
+      value: loading ? "..." : (stats?.totalRounds.toString() || "0"),
+      detail: "since mainnet automation"
+    },
+    {
+      label: "Total SOL Distributed",
+      value: loading ? "..." : (stats?.totalSolDistributed.toFixed(2) || "0.00"),
+      detail: "aggregate"
+    },
+    {
+      label: "Total Winners",
+      value: loading ? "..." : (stats?.totalWinners.toString() || "0"),
+      detail: "across all tiers"
+    },
+    {
+      label: "Avg Prize Pool (SOL)",
+      value: loading ? "..." : (stats?.avgPrizePool.toFixed(2) || "0.00"),
+      detail: "per drawing"
+    },
+  ];
+
   return (
     <>
       <main className="relative mx-auto flex min-h-screen w-full max-w-[95vw] sm:max-w-[90vw] 2xl:max-w-[1920px] flex-col gap-6 sm:gap-8 md:gap-10 px-4 sm:px-6 md:px-8 lg:px-14 pb-20 sm:pb-24 md:pb-32 pt-10 sm:pt-12 md:pt-14 text-white">
 
         <section className="grid gap-2 sm:gap-3 grid-cols-2 lg:grid-cols-4">
-          {stats.map((item) => (
+          {statCards.map((item) => (
             <article
               key={item.label}
               className="rounded-xl sm:rounded-2xl border border-primary/15 bg-card-gradient p-3 sm:p-4 text-center shadow-card backdrop-blur"
@@ -33,6 +49,12 @@ export default function HomePage() {
             </article>
           ))}
         </section>
+
+        {error && (
+          <div className="text-center text-xs text-red-400">
+            Failed to load statistics. Using default values.
+          </div>
+        )}
 
         <section className="p-0">
           <header className="space-y-2 text-center">

@@ -19,19 +19,24 @@ export function usePrizePool() {
         setError(null);
 
         // Call our Next.js API route that proxies the Solana RPC request
-        const response = await fetch('/api/prize-pool');
+        // Add cache-busting query parameter to ensure fresh data
+        const response = await fetch(`/api/prize-pool?t=${Date.now()}`, {
+          cache: 'no-store'
+        });
 
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
 
         const data = await response.json();
+        console.log('Prize pool API response:', data);
 
         if (data.error) {
           throw new Error(data.error);
         }
 
         if (isMounted) {
+          console.log('Setting prize pool to:', data.prizePool);
           setPrizePool(data.prizePool);
           setLoading(false);
         }
@@ -46,8 +51,8 @@ export function usePrizePool() {
 
     fetchBalance();
 
-    // Refresh every 30 seconds
-    const interval = setInterval(fetchBalance, 600000);
+    // Refresh every 2 minutes
+    const interval = setInterval(fetchBalance, 120000);
 
     return () => {
       isMounted = false;

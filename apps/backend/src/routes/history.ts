@@ -23,6 +23,68 @@ const isParticipantPermissionError = (error: unknown) => {
   return info.includes('permission denied for table') || info.includes('42501')
 }
 
+// GET /history/stats - dashboard statistics with network filtering
+router.get('/stats', async (req, res) => {
+  try {
+    // Get network from environment or query parameter
+    const network = process.env.SOLANA_NETWORK || 'devnet'
+
+    // Build where clause for network filtering
+    const where = {
+      network,
+      drawingDate: { not: null } // Only count completed rounds
+    }
+
+    // Get all rounds for this network to calculate aggregate stats
+    const rounds = await prismaRO.round.findMany({
+      where,
+      select: {
+        prizePoolSol: true,
+        tierPayouts: true,
+      }
+    })
+
+    // Calculate metrics
+    const totalRounds = rounds.length
+
+    // Calculate total SOL distributed (sum of all tier payouts)
+    let totalSolDistributed = 0
+    rounds.forEach(round => {
+      const payouts = (round.tierPayouts as any) || {}
+      totalSolDistributed += (payouts.t1 || 0) + (payouts.t2 || 0) + (payouts.t3 || 0) + (payouts.t4 || 0)
+    })
+
+    // Calculate total winners (count participants where isWinner = true for this network's rounds)
+    const roundIds = await prismaRO.round.findMany({
+      where,
+      select: { id: true }
+    })
+    const totalWinners = await prismaRO.participant.count({
+      where: {
+        roundId: { in: roundIds.map(r => r.id) },
+        isWinner: true
+      }
+    })
+
+    // Calculate average prize pool
+    const avgPrizePool = totalRounds > 0
+      ? rounds.reduce((sum, r) => sum + (r.prizePoolSol || 0), 0) / totalRounds
+      : 0
+
+    return res.json({
+      network,
+      totalRounds,
+      totalSolDistributed: parseFloat(totalSolDistributed.toFixed(4)),
+      totalWinners,
+      avgPrizePool: parseFloat(avgPrizePool.toFixed(4)),
+      lastUpdated: new Date().toISOString()
+    })
+  } catch (e) {
+    console.error('GET /history/stats failed', e)
+    return res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
 // GET /history/rounds - recent rounds list
 router.get('/rounds', async (req, res) => {
   try {

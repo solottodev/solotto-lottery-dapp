@@ -55,6 +55,7 @@ enum ConfigStatus {
 
 model Round {
   id                       String        @id @default(uuid())
+  network                  String        @default("devnet") // Network: mainnet-beta, devnet, testnet
   startDate                DateTime
   endDate                  DateTime
   drawingDate              DateTime?
@@ -77,6 +78,9 @@ model Round {
   participants             Participant[]
   snapshots                Snapshot[]
   drawings                 Drawing[]
+
+  @@index([network])
+  @@index([drawingDate])
 }
 
 model Participant {
