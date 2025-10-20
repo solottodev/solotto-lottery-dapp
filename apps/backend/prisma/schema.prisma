@@ -19,6 +19,8 @@ model User {
   id             String          @id @default(uuid())
   email          String          @unique
   password       String
+  totpSecret     String?         // TOTP secret for 2FA (optional, encrypted)
+  totpEnabled    Boolean         @default(false) // Whether 2FA is enabled
   lotteryConfigs LotteryConfig[] // Backrelation
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt

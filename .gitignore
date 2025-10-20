@@ -1,9 +1,20 @@
 apps/frontend/.next/
 node_modules/
 .env
+.env.local
+.env.supabase
+.env.production
 *.log
- 
+
 # Ignore accidental Windows reserved-name files (cannot be indexed on Windows)
 nul
 */nul
 apps/backend/nul
+
+# Supabase local config
+.supabase/
+
+# Database backups
+*.sql
+!apps/backend/docker/init-roles.sql
+!apps/backend/prisma/supabase-init-roles.sql

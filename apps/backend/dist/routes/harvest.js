@@ -1,4 +1,37 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -7,15 +40,16 @@ const express_1 = __importDefault(require("express"));
 const requireJwt_1 = require("../middleware/requireJwt");
 const prisma_1 = __importDefault(require("../prisma"));
 const rpc_service_1 = require("../services/rpc.service");
-const wallet_service_1 = require("../services/wallet.service");
 const web3_js_1 = require("@solana/web3.js");
 const router = express_1.default.Router();
 const BASE_PCT = { t1: 0.40, t2: 0.30, t3: 0.20, t4: 0.10 };
 router.post('/prepare', requireJwt_1.requireJwt, async (req, res) => {
     try {
-        const { roundId } = req.body || {};
+        const { roundId, operatorWalletAddress } = req.body || {};
         if (!roundId)
             return res.status(400).json({ error: 'Missing roundId' });
+        if (!operatorWalletAddress)
+            return res.status(400).json({ error: 'Missing operatorWalletAddress' });
         console.log(`\n📊 Harvesting prizes for round ${roundId}`);
         const round = await prisma_1.default.round.findUnique({ where: { id: roundId } });
         if (!round)
@@ -27,21 +61,21 @@ router.post('/prepare', requireJwt_1.requireJwt, async (req, res) => {
         console.log(`   Qualifying Tiers: ${qualifying.join(', ')}`);
         // 🌾 HARVEST: Query operator wallet balance and calculate prize pool
         const rpcService = (0, rpc_service_1.getRPCService)();
-        const walletService = (0, wallet_service_1.getWalletService)();
-        // Load operator wallet (which IS the prize source wallet)
-        let operatorKeypair;
+        const { PublicKey } = await Promise.resolve().then(() => __importStar(require('@solana/web3.js')));
+        // Use wallet address provided from frontend (connected wallet)
+        let operatorPublicKey;
         try {
-            operatorKeypair = walletService.loadOperatorKeypair();
+            operatorPublicKey = new PublicKey(operatorWalletAddress);
         }
         catch (error) {
-            return res.status(500).json({
-                error: 'Operator wallet not configured',
+            return res.status(400).json({
+                error: 'Invalid wallet address',
                 details: error instanceof Error ? error.message : String(error)
             });
         }
-        console.log(`   Prize Source (Operator): ${operatorKeypair.publicKey.toBase58().slice(0, 8)}...`);
+        console.log(`   Prize Source (Operator): ${operatorPublicKey.toBase58().slice(0, 8)}...`);
         // Query CURRENT wallet balance (this is the harvest)
-        const actualBalanceLamports = await rpcService.getBalance(operatorKeypair.publicKey);
+        const actualBalanceLamports = await rpcService.getBalance(operatorPublicKey);
         const actualBalanceSol = actualBalanceLamports / web3_js_1.LAMPORTS_PER_SOL;
         console.log(`   Current Wallet Balance: ${actualBalanceSol.toFixed(4)} SOL`);
         // Calculate prize pool based on distribution percentage

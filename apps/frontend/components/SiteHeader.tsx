@@ -26,7 +26,7 @@ export default function SiteHeader() {
     <header className="fixed left-0 right-0 top-0 z-[1000] w-full border-b border-primary/20 bg-night-900/90 backdrop-blur supports-[backdrop-filter]:bg-night-900/70">
       {/* Announcement strip */}
       <div className="w-full bg-gradient-to-r from-[#9945ff] via-[#14f195] to-[#00ffa3] py-2 md:py-3 text-center text-xs md:text-sm font-semibold uppercase tracking-[0.25em] md:tracking-[0.15em] text-slate-900 shadow-[0_4px_16px_rgba(0,0,0,0.25)]">
-        Secure operator environment — Wallet authentication required — Mainnet ready
+        Secure and Transparent operator environment — Wallet authentication required — Mainnet ready
       </div>
 
       {/* Row 1: Main Navigation Bar */}
@@ -44,7 +44,7 @@ export default function SiteHeader() {
 
           {/* Center: Subtitle */}
           <div className="hidden md:flex items-center">
-            <p className="text-base md:text-lg lg:text-xl font-semibold text-slate-200 tracking-wide">
+            <p className="text-base md:text-lg lg:text-xl text-slate-200 tracking-wide text-center">
               Decentralized Lottery: On-Chain & Auditable Automation
             </p>
           </div>

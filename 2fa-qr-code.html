@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Solotto 2FA Setup</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 600px;
+      margin: 50px auto;
+      padding: 20px;
+      background-color: #f5f5f5;
+    }
+    .container {
+      background-color: white;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    h2 {
+      color: #333;
+      text-align: center;
+    }
+    .qr-code {
+      text-align: center;
+      margin: 20px 0;
+    }
+    .qr-code img {
+      max-width: 300px;
+      border: 2px solid #ddd;
+      padding: 10px;
+      background-color: white;
+    }
+    .secret {
+      background-color: #f0f0f0;
+      padding: 15px;
+      border-radius: 5px;
+      margin: 20px 0;
+      word-break: break-all;
+      font-family: monospace;
+    }
+    .instructions {
+      margin: 20px 0;
+      line-height: 1.6;
+    }
+    .instructions ol {
+      padding-left: 20px;
+    }
+    .instructions li {
+      margin: 10px 0;
+    }
+    .warning {
+      background-color: #fff3cd;
+      border-left: 4px solid #ffc107;
+      padding: 10px;
+      margin: 20px 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>🔐 Solotto 2FA Setup</h2>
+
+    <div class="qr-code">
+      <img src="data:image/png;base64,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" alt="QR Code" />
+    </div>
+
+    <div class="instructions">
+      <h3>Setup Instructions:</h3>
+      <ol>
+        <li><strong>Scan the QR code</strong> above with your authenticator app:
+          <ul>
+            <li>Google Authenticator</li>
+            <li>Authy</li>
+            <li>Microsoft Authenticator</li>
+            <li>1Password</li>
+          </ul>
+        </li>
+        <li>Your app will display a <strong>6-digit code</strong> that changes every 30 seconds</li>
+        <li>Use that code to complete the setup (see command below)</li>
+      </ol>
+    </div>
+
+    <div class="warning">
+      <strong>⚠️ Important:</strong> Save your secret key in a secure location as a backup!
+    </div>
+
+    <div class="secret">
+      <h3>Backup Secret Key (for manual entry):</h3>
+      <code style="font-size: 14px;">LA4EO62JFR3SUZDOFEWHUZTDKYZHIYZVOQTF2YRRGBAWQLDLJV2Q</code>
+    </div>
+
+    <div class="instructions">
+      <h3>Complete Setup:</h3>
+      <p>After scanning the QR code, run this command with the 6-digit code from your app:</p>
+      <pre style="background: #f0f0f0; padding: 10px; border-radius: 5px; overflow-x: auto;">
+curl -X POST http://localhost:4000/auth/verify-2fa \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjkxMjk1MGM5LTc4M2EtNGRkNy05YTA3LWM3NzZhMDFlMTQ1MyIsImVtYWlsIjoib3BlcmF0b3JAc29sb3R0by5pbyIsImlhdCI6MTc2MDQ2NDQ4OSwiZXhwIjoxNzYwNDY4MDg5fQ.PKK5ziBfqqrMQbIn28U6noj8NHSqQePH9OQD0irz1Ds" \
+  -H "Content-Type: application/json" \
+  -d '{"totpCode": "123456"}'</pre>
+      <p><strong>Replace <code>123456</code></strong> with the current code from your authenticator app.</p>
+    </div>
+
+    <div class="instructions">
+      <h3>Alternative: Manual Entry</h3>
+      <p>If you can't scan the QR code, manually add in your authenticator app:</p>
+      <ul>
+        <li><strong>Account name:</strong> Solotto (operator@solotto.io)</li>
+        <li><strong>Key:</strong> LA4EO62JFR3SUZDOFEWHUZTDKYZHIYZVOQTF2YRRGBAWQLDLJV2Q</li>
+        <li><strong>Type:</strong> Time-based</li>
+      </ul>
+    </div>
+  </div>
+</body>
+</html>

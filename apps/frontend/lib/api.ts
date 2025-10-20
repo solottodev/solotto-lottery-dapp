@@ -183,7 +183,7 @@ export type PrepareHarvestResponse = {
 
 export const prepareHarvest = async (
   token: string,
-  payload: { roundId: string }
+  payload: { roundId: string; operatorWalletAddress?: string }
 ): Promise<PrepareHarvestResponse> => {
   if (!token) throw new Error('Missing auth token')
   const response = await fetch('/api/harvest/prepare', {
@@ -195,28 +195,119 @@ export const prepareHarvest = async (
   return await response.json()
 }
 
-export type ReleaseDistributionResponse = {
+export type SwapTransaction = {
+  transaction: string // base64 encoded unsigned swap transaction
+  tier: string
+  winnerAddress: string
+  expectedLottoAmount: number
+  priceImpact: string
+}
+
+export type PrepareDistributionResponse = {
+  swapMode: boolean
+
+  // For swap mode
+  swapTransactions?: SwapTransaction[]
+  totalExpectedLotto?: number
+
+  // For SOL mode
+  transaction?: string // base64 encoded unsigned transaction
+
+  // Common fields
+  blockhash: string
+  lastValidBlockHeight: number
+  winners: Array<{ tier: string; address: string; amount?: number; amountSOL?: number }>
+  totalAmount?: number
+  totalAmountSOL?: number
+  message: string
+}
+
+export const prepareDistribution = async (
+  token: string,
+  payload: {
+    roundId: string
+    operatorWalletAddress: string
+    swapToLotto?: boolean
+    slippagePercent?: number
+    confirmFallback?: boolean
+  }
+): Promise<PrepareDistributionResponse> => {
+  if (!token) throw new Error('Missing auth token')
+  const response = await fetch('/api/distribution/prepare', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify(payload),
+  })
+  if (!response.ok) {
+    let errorData: any
+    try {
+      errorData = await response.json()
+    } catch {
+      throw new Error(await response.text())
+    }
+
+    // Handle confirmation-gated fallback
+    if (errorData?.action === 'CONFIRM_SOL_FALLBACK') {
+      const err: any = new Error(errorData.message || 'Confirm SOL fallback')
+      err.requiresFallbackConfirm = true
+      err.details = errorData.details
+      err.fallbackProposal = errorData.fallbackProposal
+      err.error = errorData.error
+      throw err
+    }
+
+    throw new Error(errorData.error || errorData.details || 'Failed to prepare distribution')
+  }
+  return await response.json()
+}
+
+export type BroadcastDistributionResponse = {
+  success: boolean
+  swapped?: boolean // Whether Jupiter swap was used
+  signature: string
   releasedAt: string
   txSignatures: string[]
-  ataAddresses?: Record<string, string>
   audit?: {
     blockhash: string
     slot: number
   }
 }
 
-export const releaseDistribution = async (
+export const broadcastDistribution = async (
   token: string,
-  roundId: string,
-  swapToLotto: boolean
-): Promise<ReleaseDistributionResponse> => {
+  payload: {
+    roundId: string
+    signedTransaction?: string
+    signedSwapTransactions?: Array<{ transaction: string; tier: string; winnerAddress: string }>
+    swapMode?: boolean
+    swapToLotto?: boolean
+    blockhash: string
+    lastValidBlockHeight: number
+  }
+): Promise<BroadcastDistributionResponse> => {
   if (!token) throw new Error('Missing auth token')
-  if (!roundId) throw new Error('Missing round ID')
-  const response = await fetch('/api/distribution/release', {
+  const response = await fetch('/api/distribution/broadcast', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ roundId, swapToLotto }),
+    body: JSON.stringify(payload),
   })
-  if (!response.ok) throw new Error(await response.text())
+  if (!response.ok) {
+    let errorData: any
+    try {
+      errorData = await response.json()
+    } catch {
+      errorData = { error: await response.text() }
+    }
+
+    // Handle swap failure with fallback suggestion
+    if (errorData.error === 'SWAP_FAILED' && errorData.action === 'FALLBACK_TO_SOL') {
+      const error: any = new Error(errorData.message || 'Swap failed')
+      error.shouldFallback = true
+      error.details = errorData.details
+      throw error
+    }
+
+    throw new Error(errorData.error || errorData.details || 'Failed to broadcast distribution')
+  }
   return await response.json()
 }

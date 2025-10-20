@@ -2,7 +2,6 @@ import express from 'express'
 import { requireJwt } from '../middleware/requireJwt'
 import prisma from '../prisma'
 import { getRPCService } from '../services/rpc.service'
-import { getWalletService } from '../services/wallet.service'
 import { LAMPORTS_PER_SOL } from '@solana/web3.js'
 
 const router = express.Router()
@@ -11,8 +10,9 @@ const BASE_PCT = { t1: 0.40, t2: 0.30, t3: 0.20, t4: 0.10 }
 
 router.post('/prepare', requireJwt, async (req, res) => {
   try {
-    const { roundId } = req.body || {}
+    const { roundId, operatorWalletAddress } = req.body || {}
     if (!roundId) return res.status(400).json({ error: 'Missing roundId' })
+    if (!operatorWalletAddress) return res.status(400).json({ error: 'Missing operatorWalletAddress' })
 
     console.log(`\n📊 Harvesting prizes for round ${roundId}`)
 
@@ -28,23 +28,23 @@ router.post('/prepare', requireJwt, async (req, res) => {
 
     // 🌾 HARVEST: Query operator wallet balance and calculate prize pool
     const rpcService = getRPCService()
-    const walletService = getWalletService()
+    const { PublicKey } = await import('@solana/web3.js')
 
-    // Load operator wallet (which IS the prize source wallet)
-    let operatorKeypair
+    // Use wallet address provided from frontend (connected wallet)
+    let operatorPublicKey: any
     try {
-      operatorKeypair = walletService.loadOperatorKeypair()
+      operatorPublicKey = new PublicKey(operatorWalletAddress)
     } catch (error) {
-      return res.status(500).json({
-        error: 'Operator wallet not configured',
+      return res.status(400).json({
+        error: 'Invalid wallet address',
         details: error instanceof Error ? error.message : String(error)
       })
     }
 
-    console.log(`   Prize Source (Operator): ${operatorKeypair.publicKey.toBase58().slice(0, 8)}...`)
+    console.log(`   Prize Source (Operator): ${operatorPublicKey.toBase58().slice(0, 8)}...`)
 
     // Query CURRENT wallet balance (this is the harvest)
-    const actualBalanceLamports = await rpcService.getBalance(operatorKeypair.publicKey)
+    const actualBalanceLamports = await rpcService.getBalance(operatorPublicKey)
     const actualBalanceSol = actualBalanceLamports / LAMPORTS_PER_SOL
 
     console.log(`   Current Wallet Balance: ${actualBalanceSol.toFixed(4)} SOL`)

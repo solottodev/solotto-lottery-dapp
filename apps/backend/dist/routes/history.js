@@ -59,6 +59,61 @@ const isParticipantPermissionError = (error) => {
     const info = String(error?.message ?? '') + String(error?.cause?.message ?? '');
     return info.includes('permission denied for table') || info.includes('42501');
 };
+// GET /history/stats - dashboard statistics with network filtering
+router.get('/stats', async (req, res) => {
+    try {
+        // Get network from environment or query parameter
+        const network = process.env.SOLANA_NETWORK || 'devnet';
+        // Build where clause for network filtering
+        const where = {
+            network,
+            drawingDate: { not: null } // Only count completed rounds
+        };
+        // Get all rounds for this network to calculate aggregate stats
+        const rounds = await prisma_1.prismaRO.round.findMany({
+            where,
+            select: {
+                prizePoolSol: true,
+                tierPayouts: true,
+            }
+        });
+        // Calculate metrics
+        const totalRounds = rounds.length;
+        // Calculate total SOL distributed (sum of all tier payouts)
+        let totalSolDistributed = 0;
+        rounds.forEach(round => {
+            const payouts = round.tierPayouts || {};
+            totalSolDistributed += (payouts.t1 || 0) + (payouts.t2 || 0) + (payouts.t3 || 0) + (payouts.t4 || 0);
+        });
+        // Calculate total winners (count participants where isWinner = true for this network's rounds)
+        const roundIds = await prisma_1.prismaRO.round.findMany({
+            where,
+            select: { id: true }
+        });
+        const totalWinners = await prisma_1.prismaRO.participant.count({
+            where: {
+                roundId: { in: roundIds.map(r => r.id) },
+                isWinner: true
+            }
+        });
+        // Calculate average prize pool
+        const avgPrizePool = totalRounds > 0
+            ? rounds.reduce((sum, r) => sum + (r.prizePoolSol || 0), 0) / totalRounds
+            : 0;
+        return res.json({
+            network,
+            totalRounds,
+            totalSolDistributed: parseFloat(totalSolDistributed.toFixed(4)),
+            totalWinners,
+            avgPrizePool: parseFloat(avgPrizePool.toFixed(4)),
+            lastUpdated: new Date().toISOString()
+        });
+    }
+    catch (e) {
+        console.error('GET /history/stats failed', e);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+});
 // GET /history/rounds - recent rounds list
 router.get('/rounds', async (req, res) => {
     try {
@@ -489,7 +544,23 @@ router.get('/export/round/:id/full', async (req, res) => {
                     if (winners[tierKey] === participant.wallet) {
                         prizeTierWon = `TIER ${i + 1}`;
                         prizeAmount = payouts[tierKey]?.toString() || '';
-                        txSignature = txSignatures[i] || '';
+                        // Handle transaction signature mapping
+                        // In SOL mode: single transaction for all winners (length = 1)
+                        // In swap mode: one transaction per winner (length = number of winners)
+                        if (txSignatures.length === 1) {
+                            // SOL mode - all winners share the same transaction
+                            txSignature = txSignatures[0] || '';
+                        }
+                        else {
+                            // Swap mode - map each winner to their transaction by position
+                            // Count how many winners exist before this tier
+                            let sigIndex = 0;
+                            for (let j = 0; j < i; j++) {
+                                if (winners[tiers[j]])
+                                    sigIndex++;
+                            }
+                            txSignature = txSignatures[sigIndex] || '';
+                        }
                         if (txSignature) {
                             solscanUrl = `https://solscan.io/tx/${txSignature}${cluster}`;
                         }

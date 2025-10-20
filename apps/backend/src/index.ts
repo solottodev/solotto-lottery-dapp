@@ -44,6 +44,7 @@ app.use("/protected", protectedRouter);
 // Basic health route
 import { prismaRO } from './prisma';
 import { getRPCService } from './services/rpc.service';
+import { getJupiterService } from './services/jupiter.service';
 import { getAlchemyClient } from './services/alchemy.client';
 
 /**
@@ -184,6 +185,42 @@ app.get('/api/v1/health/alchemy', async (_req, res) => {
   } catch (e) {
     console.error('Alchemy health check failed', e);
     return res.status(500).json({ ok: false, error: 'Alchemy not configured or unhealthy' });
+  }
+});
+
+/**
+ * @swagger
+ * /api/v1/health/jupiter:
+ *   get:
+ *     summary: Jupiter API health check
+ *     description: Checks Jupiter configuration and DNS resolution for the API host
+ *     tags: [Health]
+ *     responses:
+ *       200:
+ *         description: Jupiter health status
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 ok:
+ *                   type: boolean
+ *                 configured:
+ *                   type: boolean
+ *                 diagnostics:
+ *                   type: object
+ *       500:
+ *         description: Jupiter health check failed
+ */
+app.get('/api/v1/health/jupiter', async (_req, res) => {
+  try {
+    const jupiter = getJupiterService();
+    const diag = await jupiter.diagnostics();
+    const ok = diag.dns.ok;
+    return res.json({ ok, configured: diag.configured, diagnostics: diag, timestamp: new Date().toISOString() });
+  } catch (e) {
+    console.error('Jupiter health check failed', e);
+    return res.status(500).json({ ok: false, error: 'Jupiter health check failed' });
   }
 });
 

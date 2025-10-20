@@ -4,16 +4,19 @@ import { useMemo, useState } from 'react'
 import { useModuleStore } from '@/hooks/useModuleStore'
 import { Button } from '@/components/ui/button'
 import { useAuthStore } from '@/hooks/useAuthStore'
-import { releaseDistribution } from '@/lib/api'
+import { prepareDistribution, broadcastDistribution } from '@/lib/api'
 import { HelperText } from '@/components/ui/helper-text'
 import { ConfirmationModal } from '@/components/ui/confirmation-modal'
 import { IndeterminateProgressBar } from '@/components/ui/progress-bar'
 import { CheckCircle2 } from 'lucide-react'
+import { useWallet } from '@solana/wallet-adapter-react'
+import { Transaction, VersionedTransaction } from '@solana/web3.js'
 
 const formatSol = (n: number) => `${n.toFixed(6)} SOL`
 
 export default function DistributionModule() {
   const { jwt } = useAuthStore()
+  const { publicKey, signTransaction } = useWallet()
   const {
     harvestStatus,
     allocations,
@@ -36,6 +39,9 @@ export default function DistributionModule() {
   } = useModuleStore()
 
   const [error, setError] = useState<string | null>(null)
+  const [fallbackInfo, setFallbackInfo] = useState<null | { winners: Array<{ tier: string; address: string; amountSOL: number }>; totalAmountSOL: number }>(null)
+  const [showFallbackModal, setShowFallbackModal] = useState(false)
+  const [lastPreparePayload, setLastPreparePayload] = useState<any>(null)
   const [showReleaseModal, setShowReleaseModal] = useState(false)
   const [showCompleteModal, setShowCompleteModal] = useState(false)
   const ready = harvestStatus === 'prepared'
@@ -55,8 +61,28 @@ export default function DistributionModule() {
 
   const getTierTxSignature = (tierKey: string): string | null => {
     if (!harvestAudit?.txSignatures || harvestAudit.txSignatures.length === 0) return null
+
+    // Check if this tier has a winner
     const tierIndex = ['t1', 't2', 't3', 't4'].indexOf(tierKey)
-    return harvestAudit.txSignatures[tierIndex] || null
+    const hasWinner = rows[tierIndex]?.addr
+
+    if (!hasWinner) return null
+
+    // In SOL mode: single transaction for all winners (length = 1)
+    // In swap mode: one transaction per winner (length = number of winners)
+    if (harvestAudit.txSignatures.length === 1) {
+      // SOL mode - all winners share the same transaction
+      return harvestAudit.txSignatures[0]
+    }
+
+    // Swap mode - map each winner to their transaction by position
+    // Count how many winners exist before this tier
+    let sigIndex = 0
+    for (let i = 0; i < tierIndex; i++) {
+      if (rows[i]?.addr) sigIndex++
+    }
+
+    return harvestAudit.txSignatures[sigIndex] || null
   }
 
   const getSolscanUrl = (signature: string): string => {
@@ -101,25 +127,146 @@ export default function DistributionModule() {
       console.error('❌ Round ID is null/undefined')
       return
     }
+
+    if (!jwt) {
+      setError('Operator authentication required')
+      return
+    }
+
+    if (!publicKey) {
+      setError('Wallet not connected - please connect your wallet')
+      return
+    }
+
+    if (!signTransaction) {
+      setError('Wallet does not support transaction signing')
+      return
+    }
+
     try {
       setDistributionStatus('releasing')
       let txs: string[] = []
       let audit: any = null
       let ataAddrs: Record<string, string> = {}
+      let actuallySwapped = false
+
       try {
-        if (jwt) {
-          console.log('📡 Calling releaseDistribution API with:', { roundId, swapToLotto })
-          const res = await releaseDistribution(jwt, roundId, swapToLotto)
-          console.log('✅ Distribution response:', res)
-          txs = res.txSignatures || []
-          audit = res.audit || null
-          ataAddrs = res.ataAddresses || {}
-        } else {
-          await new Promise((r) => setTimeout(r, 600))
-          txs = [`tx_${Math.random().toString(36).slice(2, 12)}`]
+        // Step 1: Prepare the distribution transaction(s)
+        console.log('📡 Preparing distribution transaction with:', {
+          roundId,
+          operatorWallet: publicKey.toBase58(),
+          swapToLotto,
+          slippage: slippage
+        })
+
+        const preparePayload = {
+          roundId,
+          operatorWalletAddress: publicKey.toBase58(),
+          swapToLotto,
+          slippagePercent: slippage
         }
-      } catch (err) {
+        setLastPreparePayload(preparePayload)
+
+        const prepareRes = await prepareDistribution(jwt, preparePayload)
+        console.log('✅ Transaction prepared:', prepareRes)
+
+        // Step 2: Handle Swap Mode (Multiple transactions)
+        if (prepareRes.swapMode && prepareRes.swapTransactions && prepareRes.swapTransactions.length > 0) {
+          console.log(`🔄 Swap mode enabled - signing ${prepareRes.swapTransactions.length} Jupiter swap transactions...`)
+
+          const signedSwapTxs: Array<{ transaction: string; tier: string; winnerAddress: string }> = []
+
+          // Sign each swap transaction
+          for (const swapTx of prepareRes.swapTransactions) {
+            console.log(`   Signing ${swapTx.tier} swap for ${swapTx.winnerAddress.slice(0, 8)}...`)
+
+            // Deserialize versioned transaction
+            const txBuffer = Buffer.from(swapTx.transaction, 'base64')
+            const versionedTx = VersionedTransaction.deserialize(txBuffer)
+
+            // Sign with Phantom
+            const signedTx = await signTransaction(versionedTx)
+
+            // Serialize signed transaction
+            const signedTxBase64 = Buffer.from(signedTx.serialize()).toString('base64')
+
+            signedSwapTxs.push({
+              transaction: signedTxBase64,
+              tier: swapTx.tier,
+              winnerAddress: swapTx.winnerAddress
+            })
+
+            console.log(`   ✅ ${swapTx.tier} signed`)
+          }
+
+          // Step 3: Broadcast all signed swap transactions
+          console.log('📡 Broadcasting signed swap transactions...')
+          const broadcastRes = await broadcastDistribution(jwt, {
+            roundId,
+            signedSwapTransactions: signedSwapTxs,
+            swapMode: true,
+            swapToLotto: true,
+            blockhash: prepareRes.blockhash,
+            lastValidBlockHeight: prepareRes.lastValidBlockHeight
+          })
+          console.log('✅ Swap distribution broadcast response:', broadcastRes)
+
+          txs = broadcastRes.txSignatures || [broadcastRes.signature]
+          audit = broadcastRes.audit || null
+          actuallySwapped = broadcastRes.swapped || false
+          ataAddrs = {}
+        }
+        // Step 2: Handle SOL Mode (Single transaction)
+        else if (prepareRes.transaction) {
+          console.log('💰 SOL mode - signing single transfer transaction...')
+
+          // Deserialize and sign the transaction with Phantom
+          const txBuffer = Buffer.from(prepareRes.transaction, 'base64')
+          const transaction = Transaction.from(txBuffer)
+
+          console.log('🔐 Requesting wallet signature...')
+          const signedTx = await signTransaction(transaction)
+
+          // Serialize signed transaction
+          const signedTxBase64 = signedTx.serialize().toString('base64')
+
+          // Broadcast the signed transaction
+          console.log('📡 Broadcasting signed transaction...')
+          const broadcastRes = await broadcastDistribution(jwt, {
+            roundId,
+            signedTransaction: signedTxBase64,
+            swapMode: false,
+            swapToLotto: false,
+            blockhash: prepareRes.blockhash,
+            lastValidBlockHeight: prepareRes.lastValidBlockHeight
+          })
+          console.log('✅ SOL distribution broadcast response:', broadcastRes)
+
+          txs = broadcastRes.txSignatures || [broadcastRes.signature]
+          audit = broadcastRes.audit || null
+          actuallySwapped = false
+          ataAddrs = {}
+        } else {
+          throw new Error('Invalid prepare response - no transaction data')
+        }
+      } catch (err: any) {
         console.error('❌ Distribution error:', err)
+
+        // Handle swap failure with fallback suggestion
+        if (err.shouldFallback) {
+          setError(`Jupiter swap failed: ${err.details || err.message}. Please uncheck "Swap SOL to LOTTO" and retry with SOL distribution.`)
+          setDistributionStatus('queued')
+          return
+        }
+
+        // Handle confirmation-gated fallback from prepare
+        if ((err as any).requiresFallbackConfirm && (err as any).fallbackProposal) {
+          setFallbackInfo((err as any).fallbackProposal)
+          setShowFallbackModal(true)
+          setDistributionStatus('queued')
+          return
+        }
+
         throw err
       }
       const distributionIso = new Date().toISOString()
@@ -145,7 +292,7 @@ export default function DistributionModule() {
         tierWinners: winners,
         tierPayouts: allocations,
         txSignatures: txs,
-        swapToLotto,
+        swapToLotto: actuallySwapped,
         isLocal: true,
       })
       const participantsPreview = (['t1','t2','t3','t4'] as const).map((tierKey) => {
@@ -239,7 +386,10 @@ export default function DistributionModule() {
                 </div>
               )}
               <div className="mt-2 text-[10px] sm:text-xs text-slate-400">Prize Amount</div>
-              <div className="text-primary font-semibold text-sm sm:text-base truncate">{formatSol(r.amount || 0)}{swapToLotto ? ' → LOTTO (preview)' : ''}</div>
+              <div className="text-primary font-semibold text-sm sm:text-base truncate">
+                {formatSol(r.amount || 0)}
+                {isReleased ? '' : swapToLotto ? ' → LOTTO (pending swap)' : ''}
+              </div>
             </div>
           )
         })}
@@ -341,6 +491,87 @@ export default function DistributionModule() {
         confirmText="Release Funds"
         cancelText="Cancel"
         variant="danger"
+      />
+
+      {/* Confirmation Modal for SOL Fallback */}
+      <ConfirmationModal
+        isOpen={showFallbackModal}
+        onClose={() => setShowFallbackModal(false)}
+        onConfirm={async () => {
+          if (!jwt || !lastPreparePayload) return
+          try {
+            setError(null)
+            setDistributionStatus('releasing')
+            const prepareRes = await prepareDistribution(jwt, { ...lastPreparePayload, confirmFallback: true })
+            console.log('✅ Fallback confirmed. SOL transaction prepared:', prepareRes)
+
+            if (prepareRes.transaction) {
+              const txBuffer = Buffer.from(prepareRes.transaction, 'base64')
+              const transaction = Transaction.from(txBuffer)
+              const signedTx = await signTransaction!(transaction)
+              const signedTxBase64 = signedTx.serialize().toString('base64')
+              const broadcastRes = await broadcastDistribution(jwt, {
+                roundId: lastPreparePayload.roundId,
+                signedTransaction: signedTxBase64,
+                swapMode: false,
+                swapToLotto: false,
+                blockhash: prepareRes.blockhash,
+                lastValidBlockHeight: prepareRes.lastValidBlockHeight
+              })
+
+              const txs = broadcastRes.txSignatures || [broadcastRes.signature]
+              const audit = broadcastRes.audit || null
+              const distributionIso = new Date().toISOString()
+
+              setDistributionStatus('released')
+              setDistributionDate(distributionIso)
+              setHarvestAudit({
+                ...(harvestAudit || {}),
+                txSignatures: txs,
+                ataAddresses: {},
+                ...(audit ? { blockhash: audit.blockhash, slot: audit.slot } : {})
+              })
+
+              const historyId = lastPreparePayload.roundId || `preview-${Date.now().toString(36)}`
+              upsertHistoryRound({
+                id: historyId,
+                drawingDate: drawingCompletedAt || drawingStartedAt || null,
+                distributionDate: distributionIso,
+                prizePoolSol,
+                totalParticipants: participantCounts ? (participantCounts.t1 + participantCounts.t2 + participantCounts.t3 + participantCounts.t4) : null,
+                eligibleParticipants: participantCounts ? (participantCounts.t1 + participantCounts.t2 + participantCounts.t3 + participantCounts.t4) : null,
+                tierWinners: winners,
+                tierPayouts: allocations,
+                txSignatures: txs,
+                swapToLotto: false,
+                isLocal: true,
+              })
+            } else {
+              setError('Fallback failed: no SOL transaction prepared')
+              setDistributionStatus('queued')
+            }
+          } catch (e: any) {
+            console.error('❌ Fallback confirmation failed:', e)
+            setError(e?.message || 'Fallback confirmation failed')
+            setDistributionStatus('queued')
+          }
+        }}
+        title="Confirm SOL Fallback"
+        message={(() => {
+          if (!fallbackInfo) return 'Jupiter swap failed. Confirm to distribute SOL directly.'
+          const lines = [
+            'Jupiter swap preparation failed. Confirm to distribute SOL directly to winners.',
+            '',
+            'Proposed SOL distribution:',
+            ...fallbackInfo.winners.map(w => `${w.tier.toUpperCase()}: ${w.amountSOL.toFixed(6)} SOL → ${w.address}`),
+            '',
+            `Total: ${fallbackInfo.totalAmountSOL.toFixed(6)} SOL`
+          ]
+          return lines.join('\n')
+        })()}
+        confirmText="Confirm SOL Fallback"
+        cancelText="Cancel"
+        variant="warning"
       />
 
       {/* Confirmation Modal for Complete Round */}

@@ -7,6 +7,7 @@ import { useAuthStore } from '@/hooks/useAuthStore'
 import { prepareHarvest } from '@/lib/api'
 import { HelperText } from '@/components/ui/helper-text'
 import { CheckCircle2 } from 'lucide-react'
+import { useWallet } from '@solana/wallet-adapter-react'
 
 const formatSol = (n: number) => `${n.toFixed(6)} SOL`
 const shorten = (addr?: string | null) => {
@@ -17,6 +18,7 @@ const shorten = (addr?: string | null) => {
 
 export default function HarvestModule() {
   const { jwt } = useAuthStore()
+  const { publicKey } = useWallet()
   const {
     distributionEnabled,
     prizePoolSol,
@@ -42,13 +44,20 @@ export default function HarvestModule() {
         setError('Operator authentication required')
         return
       }
+      if (!publicKey) {
+        setError('Wallet not connected - please connect your wallet')
+        return
+      }
       const state = useModuleStore.getState()
       if (!state.roundId) {
         setError('Round not initialized; submit Control configuration first.')
         return
       }
       setHarvestStatus('preparing')
-      const res = await prepareHarvest(jwt, { roundId: state.roundId })
+      const res = await prepareHarvest(jwt, {
+        roundId: state.roundId,
+        operatorWalletAddress: publicKey.toBase58()
+      })
       setAllocations(res.allocations)
       setHarvestPreparedAt(res.preparedAt)
       if (res.prizePoolSol !== undefined) {

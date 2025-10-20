@@ -1,0 +1,556 @@
+# Staging Deployment Guide
+## Render (Backend) + Vercel (Frontend) Setup
+
+**Environment:** Devnet Testing
+**Duration:** 2-3 hours
+**Prerequisites:** GitHub repository, Render account, Vercel account
+
+---
+
+## Table of Contents
+
+1. [Prerequisites](#prerequisites)
+2. [Render Backend Setup](#render-backend-setup)
+3. [Vercel Frontend Setup](#vercel-frontend-setup)
+4. [Database Configuration](#database-configuration)
+5. [Testing Deployment](#testing-deployment)
+6. [Troubleshooting](#troubleshooting)
+
+---
+
+## Prerequisites
+
+### Required Accounts
+- ✅ GitHub account (repository access)
+- ✅ Render account ([render.com](https://render.com)) - Free tier OK for staging
+- ✅ Vercel account ([vercel.com](https://vercel.com)) - Free tier OK for staging
+- ✅ Supabase account (already set up)
+- ✅ Alchemy account (upgrade to Pay-As-You-Go recommended)
+
+### Required Information
+- Supabase connection strings (from existing `.env`)
+- Alchemy API key (devnet)
+- Operator wallet private key (devnet test wallet)
+- JWT secret (generate new for staging)
+
+---
+
+## Render Backend Setup
+
+### Step 1: Create Render Account
+
+1. Go to [render.com](https://render.com)
+2. Sign up with GitHub (recommended for easy repo connection)
+3. Verify email address
+
+### Step 2: Create New Web Service
+
+1. Click "New +" → "Web Service"
+2. Connect GitHub repository:
+   - Click "Connect account" if first time
+   - Select `solotto-lottery-dapp` repository
+   - Grant Render access
+
+3. Configure service:
+   ```
+   Name: solotto-backend-staging
+   Region: Oregon (us-west) or nearest
+   Branch: main
+   Root Directory: apps/backend
+   Runtime: Node
+   Build Command: npm install && npm run build
+   Start Command: npm start
+   ```
+
+4. Select Instance Type:
+   - **Free** - Good for staging testing
+   - **Starter** ($7/mo) - Better performance, recommended
+
+### Step 3: Configure Environment Variables
+
+Click "Environment" tab and add these variables:
+
+```env
+# Server
+NODE_ENV=staging
+PORT=3000
+
+# Database (Supabase)
+DATABASE_URL=postgresql://postgres.nkiezfkiasqgefzgyuwb:Beanie22$@aws-0-us-east-1.pooler.supabase.com:6543/postgres?pgbouncer=true
+DATABASE_URL_RO=postgresql://postgres.nkiezfkiasqgefzgyuwb:Beanie22$@aws-0-us-east-1.pooler.supabase.com:6543/postgres?pgbouncer=true
+DATABASE_URL_DIRECT=postgresql://postgres.nkiezfkiasqgefzgyuwb:Beanie22$@aws-0-us-east-1.pooler.supabase.com:5432/postgres
+
+# JWT Secret (generate new)
+JWT_SECRET=<run: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))">
+
+# Solana (DEVNET)
+SOLANA_NETWORK=devnet
+ALCHEMY_API_KEY=XlqTcFrjZdz_xX82LF7JFzYLzb_tVB0t
+ALCHEMY_RPC_URL=https://solana-devnet.g.alchemy.com/v2/XlqTcFrjZdz_xX82LF7JFzYLzb_tVB0t
+SOLANA_RPC_FALLBACK=https://api.devnet.solana.com
+
+# Token (DEVNET)
+LOTTO_MINT_ADDRESS=4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU
+LOTTO_DECIMALS=6
+
+# Operator Wallet (DEVNET - create new test wallet)
+OPERATOR_WALLET_PRIVATE_KEY=<your-devnet-wallet-private-key>
+
+# Hard Blacklist
+HARD_BLACKLIST=["11111111111111111111111111111111"]
+```
+
+**⚠️ IMPORTANT:**
+- Generate a NEW JWT_SECRET for staging (don't reuse production)
+- Use a DEVNET wallet for OPERATOR_WALLET_PRIVATE_KEY
+- Never commit private keys to Git
+
+### Step 4: Add Build Scripts
+
+Create `apps/backend/package.json` build script if not present:
+
+```json
+{
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "ts-node src/index.ts"
+  }
+}
+```
+
+### Step 5: Deploy
+
+1. Click "Create Web Service"
+2. Wait for build to complete (~3-5 minutes)
+3. Check logs for errors
+4. Note the deployment URL: `https://solotto-backend-staging.onrender.com`
+
+### Step 6: Verify Deployment
+
+Test health endpoint:
+
+```bash
+curl https://solotto-backend-staging.onrender.com/api/v1/health
+
+# Expected response:
+{
+  "ok": true,
+  "database": "healthy"
+}
+```
+
+---
+
+## Vercel Frontend Setup
+
+### Step 1: Create Vercel Account
+
+1. Go to [vercel.com](https://vercel.com)
+2. Sign up with GitHub
+3. Verify email
+
+### Step 2: Import Project
+
+1. Click "Add New..." → "Project"
+2. Select "Import Git Repository"
+3. Choose `solotto-lottery-dapp` repository
+4. Configure:
+   ```
+   Framework Preset: Next.js
+   Root Directory: apps/frontend
+   Build Command: npm run build
+   Output Directory: .next
+   Install Command: npm install
+   ```
+
+### Step 3: Configure Environment Variables
+
+Add these variables in "Environment Variables" section:
+
+```env
+# Solana (DEVNET)
+NEXT_PUBLIC_SOLANA_NETWORK=devnet
+NEXT_PUBLIC_RPC_URL=https://solana-devnet.g.alchemy.com/v2/XlqTcFrjZdz_xX82LF7JFzYLzb_tVB0t
+
+# Token (DEVNET)
+NEXT_PUBLIC_LOTTO_MINT=4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU
+NEXT_PUBLIC_NETWORK=devnet
+
+# Backend API (Render staging URL)
+NEXT_PUBLIC_BACKEND_URL=https://solotto-backend-staging.onrender.com
+```
+
+**⚠️ Note:** Use the actual Render URL from Step 5 above
+
+### Step 4: Deploy
+
+1. Click "Deploy"
+2. Wait for build (~2-3 minutes)
+3. Note the deployment URL: `https://solotto-frontend-staging.vercel.app`
+
+### Step 5: Set Up Custom Domain (Optional)
+
+1. Go to Project Settings → Domains
+2. Add custom domain (e.g., `staging.solotto.live`)
+3. Update DNS records as instructed
+4. Wait for SSL certificate (automatic)
+
+### Step 6: Enable Preview Deployments
+
+Vercel automatically creates preview deployments for:
+- Every Git push to branches
+- Every pull request
+
+Preview URLs: `https://solotto-frontend-<branch>-<hash>.vercel.app`
+
+---
+
+## Database Configuration
+
+### Supabase Setup (Already Done)
+
+Your Supabase is already configured with:
+- ✅ Database: `postgres` on `nkiezfkiasqgefzgyuwb.supabase.co`
+- ✅ Roles: `postgres` (admin), `solotto_app` (read/write), `solotto_ro` (read-only)
+- ✅ Connection pooling: Port 6543 (pooled), Port 5432 (direct)
+
+### Network Filtering
+
+Data is filtered by `network` field:
+- **Devnet:** `network='devnet'` (staging data)
+- **Mainnet:** `network='mainnet-beta'` (production data)
+
+This allows using the same database for both environments safely.
+
+### Run Migrations (If Needed)
+
+```bash
+# From apps/backend directory
+npx prisma migrate deploy
+```
+
+---
+
+## Testing Deployment
+
+### 1. Test Backend Health
+
+```bash
+# Health check
+curl https://solotto-backend-staging.onrender.com/api/v1/health
+
+# RPC health
+curl https://solotto-backend-staging.onrender.com/api/v1/health/rpc
+
+# Database stats (public endpoint)
+curl https://solotto-backend-staging.onrender.com/api/v1/history/stats
+```
+
+### 2. Test Frontend
+
+1. Open `https://solotto-frontend-staging.vercel.app`
+2. Check:
+   - ✅ Page loads without errors
+   - ✅ Solana network shows "devnet"
+   - ✅ Wallet connection works
+   - ✅ API calls to backend succeed
+
+### 3. Test Operator Login
+
+1. Go to `/operator` page
+2. Register new operator account:
+   ```
+   Email: operator-staging@solotto.io
+   Password: <strong-password>
+   ```
+3. Login with credentials
+4. Set up 2FA:
+   - Scan QR code with Google Authenticator
+   - Verify with TOTP code
+   - Logout and login again with 2FA
+
+### 4. Test Full Lifecycle
+
+Run through complete lottery flow:
+
+#### A. Create Round Configuration
+```
+Token: 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU (devnet)
+Snapshot Start: Now
+Snapshot End: +24 hours
+Prize Distribution: 50%
+Min LOTTO: 10,000
+Prize Source: <your-funded-devnet-wallet>
+```
+
+#### B. Run Snapshot
+- Click "Run Snapshot"
+- Wait for completion (~30 seconds with RPC fallback)
+- Verify participants fetched
+
+#### C. Confirm Snapshot
+- Review participant list
+- Click "Confirm Snapshot"
+- Verify eligibility calculated
+
+#### D. Run Drawing
+- Click "Run Drawing"
+- Verify winners selected
+- Check audit trail (seed, blockhash, slot)
+
+#### E. Confirm Drawing
+- Review winners
+- Click "Confirm Drawing"
+- Verify round updated
+
+#### F. Prepare Harvest
+- Connect wallet (funded devnet wallet)
+- Click "Prepare Harvest"
+- Verify prize pool calculated
+
+#### G. Prepare Distribution
+- Choose "Send SOL" (easier for testing)
+- Click "Prepare Distribution"
+- Review transaction
+
+#### H. Broadcast Distribution
+- Sign transaction with wallet
+- Broadcast to devnet
+- Verify winners receive prizes
+
+### 5. Test Transparency Portal
+
+1. Go to `/transparency` page
+2. Check:
+   - ✅ Devnet rounds displayed
+   - ✅ Winner addresses shown
+   - ✅ Audit trails visible
+   - ✅ Transaction signatures linked
+
+---
+
+## Monitoring & Logs
+
+### Render Logs
+
+1. Go to Render Dashboard → solotto-backend-staging
+2. Click "Logs" tab
+3. View real-time logs
+4. Filter by level (Info, Warn, Error)
+
+**Useful Log Searches:**
+```
+❌  - Find errors
+🚀  - Find startup events
+✅  - Find success events
+🎰  - Find drawing events
+```
+
+### Vercel Logs
+
+1. Go to Vercel Dashboard → Project
+2. Click "Functions" → "Logs"
+3. View deployment logs and runtime logs
+
+### Database Monitoring
+
+1. Go to Supabase Dashboard
+2. Navigate to "Database" → "Logs"
+3. Monitor slow queries and errors
+
+---
+
+## Troubleshooting
+
+### Backend Won't Start
+
+**Symptom:** Build fails or service crashes
+
+**Common Causes:**
+1. Missing environment variables
+   - Check all required vars are set
+   - Verify DATABASE_URL format
+
+2. Database connection errors
+   - Test connection string locally
+   - Check Supabase IP allowlist (if enabled)
+
+3. Build errors
+   - Check build logs in Render
+   - Verify `package.json` scripts
+   - Try building locally first
+
+**Debug Steps:**
+```bash
+# Local build test
+cd apps/backend
+npm install
+npm run build
+npm start
+```
+
+### Frontend API Errors
+
+**Symptom:** 404 or CORS errors when calling backend
+
+**Solution:**
+1. Verify `NEXT_PUBLIC_BACKEND_URL` is correct
+2. Check Render backend is running
+3. Test backend health endpoint directly
+4. Check CORS configuration in backend:
+
+```typescript
+// apps/backend/src/index.ts
+app.use(cors({
+  origin: process.env.NODE_ENV === 'production'
+    ? ['https://solotto.live', 'https://solotto-frontend-staging.vercel.app']
+    : '*',
+  credentials: true,
+}));
+```
+
+### Database Connection Pool Errors
+
+**Symptom:** "Too many connections" or "Connection pool exhausted"
+
+**Solution:**
+1. Use pooled connection (port 6543)
+2. Reduce connection pool size in Prisma:
+
+```typescript
+// apps/backend/src/prisma.ts
+const prisma = new PrismaClient({
+  datasources: {
+    db: {
+      url: process.env.DATABASE_URL,
+    },
+  },
+  // Add connection pool config
+  __internal: {
+    engine: {
+      connectionLimit: 5, // Reduce for free tier
+    },
+  },
+});
+```
+
+### RPC Rate Limiting
+
+**Symptom:** "429 Too Many Requests" from Alchemy
+
+**Solution:**
+1. Upgrade Alchemy to Pay-As-You-Go tier
+2. Implement request caching
+3. Use fallback RPC for non-critical requests
+
+### Slow Deployments
+
+**Render:**
+- Free tier has slower builds
+- Upgrade to Starter tier ($7/mo) for faster deploys
+
+**Vercel:**
+- Usually fast (~2-3 minutes)
+- Check build logs for dependency issues
+
+---
+
+## Automatic Deployments
+
+### Render (Backend)
+
+Configure auto-deploy on Git push:
+1. Go to Settings → Build & Deploy
+2. Enable "Auto-Deploy"
+3. Branch: `main`
+4. Deploy on push: ✅ Enabled
+
+### Vercel (Frontend)
+
+Vercel automatically deploys:
+- **Production:** Pushes to `main` branch
+- **Preview:** Pushes to any branch
+- **PR Preview:** Every pull request
+
+### Disable Auto-Deploy (Optional)
+
+For manual control:
+- Render: Settings → Disable "Auto-Deploy"
+- Vercel: Settings → Git → Disable "Automatic Deployments"
+
+---
+
+## Security Checklist
+
+Before going live on staging:
+
+- [ ] All environment variables set correctly
+- [ ] No secrets committed to Git
+- [ ] JWT_SECRET is unique and strong (64+ chars)
+- [ ] Operator wallet is devnet only (no real funds)
+- [ ] Database uses connection pooling (port 6543)
+- [ ] CORS configured correctly
+- [ ] Rate limiting enabled
+- [ ] 2FA working for operator login
+- [ ] HTTPS enabled (automatic on Render/Vercel)
+- [ ] Logs don't expose sensitive data
+
+---
+
+## Cost Estimate (Staging)
+
+### Free Tier (Testing)
+```
+Render: $0/month (Free tier)
+Vercel: $0/month (Hobby tier)
+Supabase: $0/month (Free tier)
+Alchemy: ~$0/month (Pay-As-You-Go, low usage)
+TOTAL: $0/month
+```
+
+### Recommended Tier (Better Performance)
+```
+Render: $7/month (Starter)
+Vercel: $0/month (Hobby tier sufficient)
+Supabase: $25/month (Pro tier)
+Alchemy: ~$5/month (Pay-As-You-Go)
+TOTAL: ~$37/month
+```
+
+---
+
+## Next Steps After Deployment
+
+1. ✅ Verify all services healthy
+2. ✅ Run E2E tests against staging
+3. ✅ Test complete lifecycle with funded wallets
+4. ✅ Load test with 100+ participants
+5. ✅ Document any issues
+6. ✅ Fix bugs discovered
+7. ✅ Prepare for mainnet deployment (Phase 3)
+
+---
+
+## Support & Resources
+
+### Render
+- [Docs](https://render.com/docs)
+- [Status](https://status.render.com/)
+- [Community](https://community.render.com/)
+
+### Vercel
+- [Docs](https://vercel.com/docs)
+- [Status](https://www.vercel-status.com/)
+- [Support](https://vercel.com/support)
+
+### Supabase
+- [Docs](https://supabase.com/docs)
+- [Status](https://status.supabase.com/)
+- [Support](https://supabase.com/support)
+
+---
+
+**Guide Version:** 1.0
+**Last Updated:** October 20, 2025
+**Maintainer:** Solotto Development Team

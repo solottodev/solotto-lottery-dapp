@@ -128,8 +128,11 @@ router.post('/', requireJwt_1.requireJwt, async (req, res) => {
         const ratio = Math.max(0, Math.min(100, prizeDistributionPercent)) / 100;
         const prizePoolSolRaw = prizeSourceBalanceSol * ratio;
         const prizePoolSol = Number(prizePoolSolRaw.toFixed(6));
+        // Get network from environment for tracking
+        const network = process.env.SOLANA_NETWORK || 'devnet';
         const round = await prisma_1.default.round.create({
             data: {
+                network,
                 startDate: new Date(snapshotStart),
                 endDate: new Date(snapshotEnd),
                 prizePoolSol,

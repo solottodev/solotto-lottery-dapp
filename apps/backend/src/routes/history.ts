@@ -520,7 +520,23 @@ router.get('/export/round/:id/full', async (req, res) => {
           if (winners[tierKey] === participant.wallet) {
             prizeTierWon = `TIER ${i + 1}`
             prizeAmount = payouts[tierKey]?.toString() || ''
-            txSignature = txSignatures[i] || ''
+
+            // Handle transaction signature mapping
+            // In SOL mode: single transaction for all winners (length = 1)
+            // In swap mode: one transaction per winner (length = number of winners)
+            if (txSignatures.length === 1) {
+              // SOL mode - all winners share the same transaction
+              txSignature = txSignatures[0] || ''
+            } else {
+              // Swap mode - map each winner to their transaction by position
+              // Count how many winners exist before this tier
+              let sigIndex = 0
+              for (let j = 0; j < i; j++) {
+                if (winners[tiers[j]]) sigIndex++
+              }
+              txSignature = txSignatures[sigIndex] || ''
+            }
+
             if (txSignature) {
               solscanUrl = `https://solscan.io/tx/${txSignature}${cluster}`
             }
