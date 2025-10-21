@@ -21,6 +21,16 @@ dotenv_1.default.config();
 const app = (0, express_1.default)();
 app.use((0, cors_1.default)());
 app.use(express_1.default.json());
+// Root endpoint - simple health check that works even if DB is down
+app.get('/', (_req, res) => {
+    res.json({
+        status: 'ok',
+        service: 'Solotto Backend API',
+        version: '1.0.0',
+        timestamp: new Date().toISOString(),
+        docs: '/api/v1/docs'
+    });
+});
 // API Documentation — cast swagger types to Express handlers to avoid
 // duplicate @types/express instance incompatibilities in workspaces
 const swaggerServe = swagger_ui_express_1.default.serve;
@@ -88,8 +98,12 @@ app.get('/api/v1/health', async (_req, res) => {
         return res.json({ ok: true, database: 'healthy' });
     }
     catch (e) {
-        console.error('Health check failed', e);
-        return res.status(500).json({ ok: false, database: 'unhealthy' });
+        const err = e;
+        const details = process.env.HEALTH_DEBUG === '1'
+            ? { code: err?.code, message: String(err?.message || err) }
+            : undefined;
+        console.error('Health check failed', err?.code || '', err?.message || err);
+        return res.status(500).json({ ok: false, database: 'unhealthy', details });
     }
 });
 /**

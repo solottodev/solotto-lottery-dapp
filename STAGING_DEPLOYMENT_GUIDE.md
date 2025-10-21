@@ -58,9 +58,11 @@
    Branch: main
    Root Directory: apps/backend
    Runtime: Node
-   Build Command: npm install && npm run build
+   Build Command: npm install && npx prisma generate && npm run build
    Start Command: npm start
    ```
+
+   **Note:** The build command explicitly runs `prisma generate` to ensure the Prisma client is available during build.
 
 4. Select Instance Type:
    - **Free** - Good for staging testing
@@ -93,31 +95,31 @@ SOLANA_RPC_FALLBACK=https://api.devnet.solana.com
 LOTTO_MINT_ADDRESS=4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU
 LOTTO_DECIMALS=6
 
-# Operator Wallet (DEVNET - create new test wallet)
-OPERATOR_WALLET_PRIVATE_KEY=<your-devnet-wallet-private-key>
-
 # Hard Blacklist
 HARD_BLACKLIST=["11111111111111111111111111111111"]
 ```
 
 **⚠️ IMPORTANT:**
 - Generate a NEW JWT_SECRET for staging (don't reuse production)
-- Use a DEVNET wallet for OPERATOR_WALLET_PRIVATE_KEY
-- Never commit private keys to Git
+- **NO operator wallet private key needed** - operator connects via Phantom wallet in frontend
+- Never commit secrets to Git
 
-### Step 4: Add Build Scripts
+### Step 4: Verify Build Scripts
 
-Create `apps/backend/package.json` build script if not present:
+Ensure `apps/backend/package.json` has these scripts:
 
 ```json
 {
   "scripts": {
-    "build": "tsc",
+    "build": "prisma generate && tsc",
     "start": "node dist/index.js",
+    "postinstall": "prisma generate",
     "dev": "ts-node src/index.ts"
   }
 }
 ```
+
+**Important:** The `postinstall` script ensures Prisma client is generated after `npm install`.
 
 ### Step 5: Deploy
 
@@ -128,7 +130,22 @@ Create `apps/backend/package.json` build script if not present:
 
 ### Step 6: Verify Deployment
 
-Test health endpoint:
+Test root endpoint (doesn't require database):
+
+```bash
+curl https://solotto-backend-staging.onrender.com/
+
+# Expected response:
+{
+  "status": "ok",
+  "service": "Solotto Backend API",
+  "version": "1.0.0",
+  "timestamp": "2025-10-21T...",
+  "docs": "/api/v1/docs"
+}
+```
+
+Then test database health:
 
 ```bash
 curl https://solotto-backend-staging.onrender.com/api/v1/health
