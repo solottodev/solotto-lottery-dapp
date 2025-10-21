@@ -5,13 +5,15 @@ import { useModuleStore } from '@/hooks/useModuleStore'
 import { Button } from '@/components/ui/button'
 import { useRouter } from 'next/navigation'
 import { useAuthStore } from '@/hooks/useAuthStore'
-import { releaseDistribution } from '@/lib/api'
+import { useWalletStore } from '@/hooks/useWalletStore'
+import { prepareDistribution, broadcastDistribution } from '@/lib/api'
 
 const formatSol = (n: number) => `${n.toFixed(6)} SOL`
 
 export default function DistributionPage() {
   const router = useRouter()
   const { jwt } = useAuthStore()
+  const { walletAddress } = useWalletStore()
   const {
     harvestStatus,
     allocations,
@@ -48,20 +50,58 @@ export default function DistributionPage() {
   const onRelease = async () => {
     setError(null)
     if (!ready) return
+
+    // Check wallet connection
+    if (!walletAddress) {
+      setError('Please connect your wallet first')
+      return
+    }
+
     try {
       setDistributionStatus('releasing')
       let txs: string[] = []
+
       try {
         if (jwt && roundId) {
-          const res = await releaseDistribution(jwt, roundId, swapToLotto)
-          txs = res.txSignatures
+          // Step 1: Prepare the distribution transaction
+          const prepared = await prepareDistribution(jwt, {
+            roundId,
+            operatorWalletAddress: walletAddress.toBase58(),
+            swapToLotto,
+            slippagePercent: controlConfig?.slippageTolerancePercent ?? 0.5,
+          })
+
+          // TODO: In a full implementation, we would:
+          // 1. Sign the transaction(s) using the wallet
+          // 2. Pass signed transaction(s) to broadcastDistribution
+          // For now, we'll use a fallback simulation
+
+          // Step 2: Broadcast (simulated for now - needs wallet signing integration)
+          const broadcasted = await broadcastDistribution(jwt, {
+            roundId,
+            swapMode: swapToLotto,
+            swapToLotto,
+            blockhash: prepared.blockhash,
+            lastValidBlockHeight: prepared.lastValidBlockHeight,
+            // signedTransaction: signedTx, // TODO: Add wallet signing
+          })
+
+          txs = broadcasted.txSignatures
         } else {
+          // Fallback simulation for development
           await new Promise((r) => setTimeout(r, 600))
           txs = [`tx_${Math.random().toString(36).slice(2, 12)}`]
         }
-      } catch {
-        txs = [`tx_${Math.random().toString(36).slice(2, 12)}`]
+      } catch (err: any) {
+        // Handle special error cases from new API
+        if (err.requiresFallbackConfirm || err.shouldFallback) {
+          setError(`${err.message}\n\nDetails: ${err.details || 'N/A'}`)
+          setDistributionStatus('queued')
+          return
+        }
+        throw err
       }
+
       setDistributionStatus('released')
       setDistributionDate(new Date().toISOString())
       setHarvestAudit({ ...(harvestAudit || {}), txSignatures: txs })
