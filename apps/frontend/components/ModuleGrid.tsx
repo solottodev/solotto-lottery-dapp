@@ -89,6 +89,7 @@ export function ModuleGrid() {
   const distributionStatus = useModuleStore((state) => state.distributionStatus);
   const isRestoredSession = useModuleStore((state) => state.isRestoredSession);
   const setRestoredSession = useModuleStore((state) => state.setRestoredSession);
+  const resetWorkflow = useModuleStore((state) => state.resetWorkflow);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({
     control: false,
     snapshot: false,
@@ -177,6 +178,25 @@ export function ModuleGrid() {
             <p className="mt-1 text-xs text-blue-300/80">
               Your previous workflow state has been restored from this browser session. You can continue from where you left off.
             </p>
+            <div className="mt-3 flex gap-2">
+              <button
+                onClick={() => setRestoredSession(false)}
+                className="rounded-md border border-blue-400/30 bg-blue-500/20 px-3 py-1.5 text-xs font-medium text-blue-300 hover:bg-blue-500/30 transition-colors"
+              >
+                Continue
+              </button>
+              <button
+                onClick={() => {
+                  if (confirm('Are you sure you want to reset the workflow? This will clear all progress and start fresh.')) {
+                    resetWorkflow();
+                    setRestoredSession(false);
+                  }
+                }}
+                className="rounded-md border border-red-400/30 bg-red-500/20 px-3 py-1.5 text-xs font-medium text-red-300 hover:bg-red-500/30 transition-colors"
+              >
+                Reset Workflow
+              </button>
+            </div>
           </div>
           <button
             onClick={() => setRestoredSession(false)}

@@ -1,11 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
-// apps/backend/prisma/schema.prisma
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -15,19 +7,22 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id             String          @id @default(uuid())
-  email          String          @unique
-  password       String
-  totpSecret     String?         // TOTP secret for 2FA (optional, encrypted)
-  totpEnabled    Boolean         @default(false) // Whether 2FA is enabled
-  lotteryConfigs LotteryConfig[] // Backrelation
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
+model Drawing {
+  id           String        @id
+  roundId      String
+  status       DrawingStatus @default(IDLE)
+  startedAt    DateTime?
+  completedAt  DateTime?
+  seed         String?
+  vrfRequestId String?
+  blockhash    String?
+  slot         Int?
+  createdAt    DateTime      @default(now())
+  Round        Round         @relation(fields: [roundId], references: [id], onDelete: Cascade)
 }
 
 model LotteryConfig {
-  id                       String       @id @default(uuid())
+  id                       String       @id
   tokenMint                String
   tokenDecimals            Int
   snapshotStart            DateTime
@@ -38,26 +33,33 @@ model LotteryConfig {
   minUsdLottoRequired      Float        @default(50.0)
   prizeDistributionPercent Float        @default(70.0)
   slippageTolerancePercent Float        @default(0.5)
-  blacklist                Json         @default("[]") // ✅ JSON instead of String[]
+  blacklist                Json         @default("[]")
   createdById              String
-  createdBy                User         @relation(fields: [createdById], references: [id])
   createdAt                DateTime     @default(now())
-  updatedAt                DateTime     @updatedAt
+  updatedAt                DateTime
+  User                     User         @relation(fields: [createdById], references: [id])
 }
 
-enum ConfigStatus {
-  PENDING // Submitted but not validated yet
-  VALIDATED // Passed validation checks (e.g., token is SPL, dates valid)
-  FAILED // Failed validation (e.g., blacklisted token, invalid mint)
-  ACTIVE // In use for a current round
-  LOCKED // Frozen during snapshot/draw
-  COMPLETED // Finished round
-  CANCELED // Manually aborted
+model Participant {
+  id                     String   @id
+  roundId                String
+  wallet                 String
+  tier                   Int?
+  eligibilityScore       Float?
+  isWinner               Boolean  @default(false)
+  createdAt              DateTime @default(now())
+  isEligible             Boolean  @default(false)
+  tokenLottoBalanceStart Float?
+  tokenLottoBalanceEnd   Float?
+  tokenUsdBalance        Float?
+  Round                  Round    @relation(fields: [roundId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+  @@index([wallet])
 }
 
 model Round {
-  id                       String        @id @default(uuid())
-  network                  String        @default("devnet") // Network: mainnet-beta, devnet, testnet
+  id                       String        @id
   startDate                DateTime
   endDate                  DateTime
   drawingDate              DateTime?
@@ -68,56 +70,52 @@ model Round {
   prizeSourceBalanceSol    Float?
   totalParticipants        Int           @default(0)
   eligibleParticipants     Int           @default(0)
-  tierWinners              Json // { t1, t2, t3, t4 }
-  tierPayouts              Json // { t1, t2, t3, t4 }
-  // Distribution audit fields
-  distributionTxSignatures Json?         @default("[]") // string[]
-  distributionAtaAddresses Json?         @default("{}") // { t1, t2, t3, t4 }
+  tierWinners              Json
+  tierPayouts              Json
+  distributionTxSignatures Json?         @default("[]")
+  distributionAtaAddresses Json?         @default("{}")
   swapToLotto              Boolean       @default(false)
   swapRouteId              String?
   swapSlippage             Float?
   createdAt                DateTime      @default(now())
-  participants             Participant[]
-  snapshots                Snapshot[]
-  drawings                 Drawing[]
+  network                  String        @default("devnet")
+  Drawing                  Drawing[]
+  Participant              Participant[]
+  Snapshot                 Snapshot[]
 
-  @@index([network])
   @@index([drawingDate])
-}
-
-model Participant {
-  id                      String   @id @default(uuid())
-  roundId                 String
-  wallet                  String
-  tokenLottoBalanceStart  Float? // $LOTTO token amount at round START (for trade % calculation)
-  tokenLottoBalanceEnd    Float? // $LOTTO token amount at round END (for trade % calculation)
-  tokenUsdBalance         Float? // USD value of tokens at snapshot END time (for $50 min eligibility)
-  tier                    Int?
-  eligibilityScore        Float? // Trading activity percentage (calculated from start/end balances)
-  isEligible              Boolean  @default(false)
-  isWinner                Boolean  @default(false)
-  createdAt               DateTime @default(now())
-  round                   Round    @relation(fields: [roundId], references: [id], onDelete: Cascade)
-
-  @@index([wallet])
-  @@index([createdAt])
-}
-
-enum SnapshotStatus {
-  IDLE
-  RUNNING
-  COMPLETED
-  CONFIRMED
+  @@index([network])
 }
 
 model Snapshot {
-  id          String         @id @default(uuid())
+  id          String         @id
   roundId     String
   status      SnapshotStatus @default(IDLE)
   startedAt   DateTime?
   completedAt DateTime?
   createdAt   DateTime       @default(now())
-  round       Round          @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  Round       Round          @relation(fields: [roundId], references: [id], onDelete: Cascade)
+}
+
+model User {
+  id            String          @id
+  email         String          @unique
+  password      String
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime
+  totpSecret    String?
+  totpEnabled   Boolean         @default(false)
+  LotteryConfig LotteryConfig[]
+}
+
+enum ConfigStatus {
+  PENDING
+  VALIDATED
+  FAILED
+  ACTIVE
+  LOCKED
+  COMPLETED
+  CANCELED
 }
 
 enum DrawingStatus {
@@ -127,16 +125,9 @@ enum DrawingStatus {
   CONFIRMED
 }
 
-model Drawing {
-  id           String        @id @default(uuid())
-  roundId      String
-  status       DrawingStatus @default(IDLE)
-  startedAt    DateTime?
-  completedAt  DateTime?
-  seed         String?
-  vrfRequestId String?
-  blockhash    String?
-  slot         Int?
-  createdAt    DateTime      @default(now())
-  round        Round         @relation(fields: [roundId], references: [id], onDelete: Cascade)
+enum SnapshotStatus {
+  IDLE
+  RUNNING
+  COMPLETED
+  CONFIRMED
 }

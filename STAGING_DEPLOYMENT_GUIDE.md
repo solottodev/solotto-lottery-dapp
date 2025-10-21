@@ -77,19 +77,19 @@ Click "Environment" tab and add these variables:
 NODE_ENV=staging
 PORT=3000
 
-# Database (Supabase) - IMPORTANT: URL-encode special characters in password!
-# If password is "Beanie22$", use "Beanie22%24"
+# Database (Supabase) - IMPORTANT: Use POOLER connection for Render!
+# Render requires the pooler endpoint (port 6543), NOT direct connection (port 5432)
+# URL-encode special characters in password: $ → %24, @ → %40, # → %23
 DATABASE_URL=postgresql://postgres.nkiezfkiasqgefzgyuwb:REPLACE_WITH_URL_ENCODED_PASSWORD@aws-0-us-east-1.pooler.supabase.com:6543/postgres
 DATABASE_URL_RO=postgresql://postgres.nkiezfkiasqgefzgyuwb:REPLACE_WITH_URL_ENCODED_PASSWORD@aws-0-us-east-1.pooler.supabase.com:6543/postgres
-DATABASE_URL_DIRECT=postgresql://postgres.nkiezfkiasqgefzgyuwb:REPLACE_WITH_URL_ENCODED_PASSWORD@aws-0-us-east-1.pooler.supabase.com:5432/postgres
 
 # JWT Secret (generate new)
 JWT_SECRET=<run: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))">
 
 # Solana (DEVNET)
 SOLANA_NETWORK=devnet
-ALCHEMY_API_KEY=XlqTcFrjZdz_xX82LF7JFzYLzb_tVB0t
-ALCHEMY_RPC_URL=https://solana-devnet.g.alchemy.com/v2/XlqTcFrjZdz_xX82LF7JFzYLzb_tVB0t
+ALCHEMY_API_KEY=<YOUR_ALCHEMY_API_KEY>
+ALCHEMY_RPC_URL=https://solana-devnet.g.alchemy.com/v2/<YOUR_ALCHEMY_API_KEY>
 SOLANA_RPC_FALLBACK=https://api.devnet.solana.com
 
 # Token (DEVNET)
@@ -103,6 +103,9 @@ HARD_BLACKLIST=["11111111111111111111111111111111"]
 **⚠️ IMPORTANT:**
 - **URL-encode special characters** in database password (`$` → `%24`, `@` → `%40`, `#` → `%23`)
 - Generate a NEW JWT_SECRET for staging (don't reuse production)
+- **Use YOUR Alchemy API key** - Get it from: [Alchemy Dashboard](https://dashboard.alchemy.com/) → Your App → API Key
+  - Copy the same key you're using in your local `apps/backend/.env` file
+  - The key should work with `https://solana-devnet.g.alchemy.com/v2/<YOUR_KEY>`
 - **NO operator wallet private key needed** - operator connects via Phantom wallet in frontend
 - Never commit secrets to Git
 - Do NOT add `?pgbouncer=true` to connection strings - it causes authentication issues
@@ -191,7 +194,7 @@ Add these variables in "Environment Variables" section:
 ```env
 # Solana (DEVNET)
 NEXT_PUBLIC_SOLANA_NETWORK=devnet
-NEXT_PUBLIC_RPC_URL=https://solana-devnet.g.alchemy.com/v2/XlqTcFrjZdz_xX82LF7JFzYLzb_tVB0t
+NEXT_PUBLIC_RPC_URL=https://solana-devnet.g.alchemy.com/v2/<YOUR_ALCHEMY_API_KEY>
 
 # Token (DEVNET)
 NEXT_PUBLIC_LOTTO_MINT=4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU
@@ -201,7 +204,10 @@ NEXT_PUBLIC_NETWORK=devnet
 NEXT_PUBLIC_BACKEND_URL=https://solotto-backend-staging.onrender.com
 ```
 
-**⚠️ Note:** Use the actual Render URL from Step 5 above
+**⚠️ Important Notes:**
+- Use the actual Render URL from the backend deployment
+- **Use YOUR Alchemy API key** - same key from your local `apps/frontend/.env` file
+- The frontend and backend can use the same Alchemy API key or different ones
 
 ### Step 4: Deploy
 
@@ -248,7 +254,16 @@ This allows using the same database for both environments safely.
 **Step 1: Deploy Prisma migrations**
 
 ```bash
-# From apps/backend directory
+# From apps/backend directory (local machine)
+npx prisma migrate deploy
+```
+
+**Note:** Run this from your local machine with your `.env` file configured. If a migration fails partially, you can resolve it:
+```bash
+# If migration fields already exist in database, mark as applied:
+npx prisma migrate resolve --applied "migration_name"
+
+# Then retry deploy:
 npx prisma migrate deploy
 ```
 
@@ -299,19 +314,59 @@ curl https://solotto-backend-staging.onrender.com/api/v1/history/stats
    - ✅ Wallet connection works
    - ✅ API calls to backend succeed
 
-### 3. Test Operator Login
+### 3. Create and Test Operator Login
 
-1. Go to `/operator` page
-2. Register new operator account:
+**Note:** The frontend does not have a registration UI. You must create operator accounts via API.
+
+#### Option A: Register New Operator via API
+
+```bash
+# Create new operator account for staging
+curl -X POST https://solotto-backend-staging.onrender.com/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "operator-staging@solotto.io",
+    "password": "YourStrongPassword123!"
+  }'
+
+# Response will include a JWT token:
+# {"token":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."}
+```
+
+#### Option B: Use Existing Local Development Account
+
+If you've been developing locally, your operator account already exists in the shared Supabase database and can be used on staging.
+
+#### Test Operator Login
+
+1. Open your staging frontend
+2. Click "Authenticate as Operator" button (top-right)
+3. Enter your credentials:
    ```
-   Email: operator-staging@solotto.io
-   Password: <strong-password>
+   Email: operator-staging@solotto.io (or your local account email)
+   Password: <your-password>
    ```
-3. Login with credentials
-4. Set up 2FA:
-   - Scan QR code with Google Authenticator
-   - Verify with TOTP code
-   - Logout and login again with 2FA
+4. Click "Sign in"
+5. If successful, you'll see "Logged in • Logout"
+
+#### Set up 2FA (Optional but Recommended)
+
+After logging in, set up 2FA via API:
+
+```bash
+# Get JWT token from login response, then:
+curl -X POST https://solotto-backend-staging.onrender.com/auth/setup-2fa \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+
+# Response includes QR code data URL - scan with Google Authenticator
+# Then verify with:
+curl -X POST https://solotto-backend-staging.onrender.com/auth/verify-2fa \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"totpCode":"123456"}'
+
+# Logout and login again - you'll now be prompted for 2FA code
+```
 
 ### 4. Test Full Lifecycle
 

@@ -26,9 +26,21 @@ export const SnapshotForm: React.FC = () => {
     snapshotCompletedAt,
     setSnapshotCompletedAt,
     setDrawingEnabled,
+    setParticipantCounts,
   } = useModuleStore()
 
   const [error, setError] = useState<string | null>(null)
+
+  const onCancelSnapshot = useCallback(() => {
+    if (confirm('Are you sure you want to cancel this snapshot? This will reset the snapshot module to idle.')) {
+      setSnapshotStatus('idle')
+      setSnapshotId(null)
+      setSnapshotStartedAt(null)
+      setSnapshotCompletedAt(null)
+      setParticipantCounts(null)
+      setError(null)
+    }
+  }, [setSnapshotStatus, setSnapshotId, setSnapshotStartedAt, setSnapshotCompletedAt, setParticipantCounts])
 
   const onRunSnapshot = useCallback(async () => {
     if (!jwt) {
@@ -224,6 +236,17 @@ export const SnapshotForm: React.FC = () => {
         >
           Export Participants CSV
         </Button>
+
+        {/* Cancel/Reset Button - shown when snapshot is in progress, completed, or has error */}
+        {(snapshotStatus === 'running' || snapshotStatus === 'completed' || error) && !isConfirmed && (
+          <Button
+            type="button"
+            onClick={onCancelSnapshot}
+            className="w-full sm:w-auto rounded-lg border border-red-400/30 bg-red-500/20 px-4 py-2 text-xs sm:text-sm font-semibold text-red-300 hover:bg-red-500/30 shadow-md transition-all"
+          >
+            Cancel Snapshot
+          </Button>
+        )}
       </div>
 
       {/* Helper Text */}
