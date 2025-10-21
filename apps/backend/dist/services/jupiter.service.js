@@ -7,9 +7,11 @@ exports.JupiterService = void 0;
 exports.getJupiterService = getJupiterService;
 const web3_js_1 = require("@solana/web3.js");
 const axios_1 = __importDefault(require("axios"));
-// Jupiter Swap API endpoints (v6)
-const JUPITER_QUOTE_API = 'https://quote-api.jup.ag/v6/quote';
-const JUPITER_SWAP_API = 'https://quote-api.jup.ag/v6/swap';
+const dns_1 = __importDefault(require("dns"));
+// Jupiter Swap API endpoints (v6) with env override
+const JUPITER_API_BASE = process.env.JUPITER_API_BASE_URL || 'https://quote-api.jup.ag';
+const JUPITER_QUOTE_API = `${JUPITER_API_BASE}/v6/quote`;
+const JUPITER_SWAP_API = `${JUPITER_API_BASE}/v6/swap`;
 // Native SOL mint address (wrapped SOL)
 const SOL_MINT = 'So11111111111111111111111111111111111111112';
 /**
@@ -29,7 +31,8 @@ class JupiterService {
             console.log(`🔄 Jupiter Service initialized`);
             console.log(`   LOTTO Mint: ${this.lottoMintAddress}`);
             console.log(`   Decimals: ${this.lottoDecimals}`);
-            console.log(`   Swap API: https://quote-api.jup.ag/v6`);
+            console.log(`   API Base: ${JUPITER_API_BASE}`);
+            console.log(`   Endpoints: quote=${JUPITER_QUOTE_API} swap=${JUPITER_SWAP_API}`);
         }
     }
     /**
@@ -67,6 +70,10 @@ class JupiterService {
             console.error('❌ Jupiter quote failed:', error.message);
             if (error.response?.data) {
                 console.error('   API Error:', JSON.stringify(error.response.data));
+            }
+            const host = new URL(JUPITER_QUOTE_API).hostname;
+            if ((error?.code === 'ENOTFOUND') || /ENOTFOUND/i.test(error?.message || '')) {
+                throw new Error(`Failed to get Jupiter quote: DNS resolution failed for ${host} (check network/DNS)`);
             }
             throw new Error(`Failed to get Jupiter quote: ${error.message}`);
         }
@@ -122,6 +129,10 @@ class JupiterService {
             if (error.response?.data) {
                 console.error('   API Error:', JSON.stringify(error.response.data));
             }
+            const host = new URL(JUPITER_SWAP_API).hostname;
+            if ((error?.code === 'ENOTFOUND') || /ENOTFOUND/i.test(error?.message || '')) {
+                throw new Error(`Failed to build swap transaction: DNS resolution failed for ${host} (check network/DNS)`);
+            }
             throw new Error(`Failed to build swap transaction: ${error.message}`);
         }
     }
@@ -172,6 +183,31 @@ class JupiterService {
      */
     formatLottoAmount(rawAmount) {
         return parseFloat(rawAmount) / Math.pow(10, this.lottoDecimals);
+    }
+    /**
+     * Connectivity diagnostics for Jupiter API (DNS + config)
+     */
+    async diagnostics() {
+        const host = new URL(JUPITER_API_BASE).hostname;
+        let dnsResult = {
+            host,
+            ok: false
+        };
+        try {
+            const lookup = await dns_1.default.promises.lookup(host);
+            dnsResult = { host, ok: true, address: lookup.address };
+        }
+        catch (e) {
+            dnsResult = { host, ok: false, error: e?.message || String(e) };
+        }
+        return {
+            configured: !!this.lottoMintAddress,
+            lottoMintAddress: this.lottoMintAddress || null,
+            lottoDecimals: this.lottoDecimals,
+            apiBaseUrl: JUPITER_API_BASE,
+            endpoints: { quote: JUPITER_QUOTE_API, swap: JUPITER_SWAP_API },
+            dns: dnsResult
+        };
     }
 }
 exports.JupiterService = JupiterService;

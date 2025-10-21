@@ -1,7 +1,7 @@
 // File: apps/backend/src/controllers/auth.controller.ts
 import { Request, Response } from "express";
 import { PrismaClient } from "@prisma/client";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import { issueJwt } from "../utils/jwt";
 
 const prisma = new PrismaClient();

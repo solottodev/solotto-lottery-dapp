@@ -21,12 +21,15 @@ dotenv_1.default.config();
 const app = (0, express_1.default)();
 app.use((0, cors_1.default)());
 app.use(express_1.default.json());
-// API Documentation
-app.use('/api/v1/docs', swagger_ui_express_1.default.serve, swagger_ui_express_1.default.setup(swagger_1.default, {
+// API Documentation — cast swagger types to Express handlers to avoid
+// duplicate @types/express instance incompatibilities in workspaces
+const swaggerServe = swagger_ui_express_1.default.serve;
+const swaggerSetup = swagger_ui_express_1.default.setup(swagger_1.default, {
     customCss: '.swagger-ui .topbar { display: none }',
     customSiteTitle: 'Solotto API Documentation',
     customfavIcon: '/favicon.ico'
-}));
+});
+app.use('/api/v1/docs', ...swaggerServe, swaggerSetup);
 // Versioned API (v1)
 app.use('/api/v1/control', control_1.default);
 app.use('/api/v1/harvest', harvest_1.default);
@@ -42,6 +45,7 @@ app.use("/protected", protected_1.default);
 // Basic health route
 const prisma_1 = require("./prisma");
 const rpc_service_1 = require("./services/rpc.service");
+const jupiter_service_1 = require("./services/jupiter.service");
 const alchemy_client_1 = require("./services/alchemy.client");
 /**
  * @swagger
@@ -179,6 +183,42 @@ app.get('/api/v1/health/alchemy', async (_req, res) => {
     catch (e) {
         console.error('Alchemy health check failed', e);
         return res.status(500).json({ ok: false, error: 'Alchemy not configured or unhealthy' });
+    }
+});
+/**
+ * @swagger
+ * /api/v1/health/jupiter:
+ *   get:
+ *     summary: Jupiter API health check
+ *     description: Checks Jupiter configuration and DNS resolution for the API host
+ *     tags: [Health]
+ *     responses:
+ *       200:
+ *         description: Jupiter health status
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 ok:
+ *                   type: boolean
+ *                 configured:
+ *                   type: boolean
+ *                 diagnostics:
+ *                   type: object
+ *       500:
+ *         description: Jupiter health check failed
+ */
+app.get('/api/v1/health/jupiter', async (_req, res) => {
+    try {
+        const jupiter = (0, jupiter_service_1.getJupiterService)();
+        const diag = await jupiter.diagnostics();
+        const ok = diag.dns.ok;
+        return res.json({ ok, configured: diag.configured, diagnostics: diag, timestamp: new Date().toISOString() });
+    }
+    catch (e) {
+        console.error('Jupiter health check failed', e);
+        return res.status(500).json({ ok: false, error: 'Jupiter health check failed' });
     }
 });
 const PORT = process.env.PORT || 4000;

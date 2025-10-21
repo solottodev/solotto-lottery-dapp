@@ -20,12 +20,15 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// API Documentation
-app.use('/api/v1/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+// API Documentation — cast swagger types to Express handlers to avoid
+// duplicate @types/express instance incompatibilities in workspaces
+const swaggerServe = (swaggerUi.serve as unknown) as express.RequestHandler[];
+const swaggerSetup = (swaggerUi.setup(swaggerSpec, {
   customCss: '.swagger-ui .topbar { display: none }',
   customSiteTitle: 'Solotto API Documentation',
   customfavIcon: '/favicon.ico'
-}));
+}) as unknown) as express.RequestHandler;
+app.use('/api/v1/docs', ...swaggerServe, swaggerSetup);
 
 // Versioned API (v1)
 app.use('/api/v1/control', controlRoutes);

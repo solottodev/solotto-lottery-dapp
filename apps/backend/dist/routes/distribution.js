@@ -13,7 +13,7 @@ const router = express_1.default.Router();
 // POST /distribution/prepare - Creates unsigned transaction for frontend to sign
 router.post('/prepare', requireJwt_1.requireJwt, async (req, res) => {
     try {
-        const { roundId, operatorWalletAddress, swapToLotto, slippagePercent } = req.body || {};
+        const { roundId, operatorWalletAddress, swapToLotto, slippagePercent, confirmFallback } = req.body || {};
         if (!roundId)
             return res.status(400).json({ error: 'Missing roundId' });
         if (!operatorWalletAddress)
@@ -47,7 +47,24 @@ router.post('/prepare', requireJwt_1.requireJwt, async (req, res) => {
         const jupiterService = (0, jupiter_service_1.getJupiterService)();
         const shouldSwap = swapToLotto && jupiterService.isAvailable();
         if (swapToLotto && !jupiterService.isAvailable()) {
-            console.warn(`   ⚠️  Swap requested but Jupiter not configured - falling back to SOL`);
+            console.warn(`   ⚠️  Swap requested but Jupiter not configured`);
+            if (!confirmFallback) {
+                const totalAmountSOL = ['t1', 't2', 't3', 't4']
+                    .filter(t => winners[t] && payouts[t] > 0)
+                    .reduce((sum, t) => sum + payouts[t], 0);
+                return res.status(412).json({
+                    error: 'JUPITER_NOT_CONFIGURED',
+                    action: 'CONFIRM_SOL_FALLBACK',
+                    message: 'Jupiter swap not configured. Confirm to fallback to SOL distribution.',
+                    fallbackProposal: {
+                        winners: ['t1', 't2', 't3', 't4']
+                            .filter(t => winners[t] && payouts[t] > 0)
+                            .map(t => ({ tier: t, address: winners[t], amountSOL: payouts[t] })),
+                        totalAmountSOL
+                    }
+                });
+            }
+            // If confirmFallback is true, proceed to SOL build below
         }
         // OPTION 1: Build Jupiter Swap Transactions (SOL → LOTTO for each winner)
         if (shouldSwap) {
@@ -90,9 +107,22 @@ router.post('/prepare', requireJwt_1.requireJwt, async (req, res) => {
                 });
             }
             catch (swapError) {
-                console.error(`❌ Failed to build swap transactions:`, swapError.message);
-                console.log(`   ⚠️  Falling back to SOL distribution`);
-                // Fall through to SOL distribution below
+                const details = swapError?.message || String(swapError);
+                console.error(`❌ Failed to build swap transactions:`, details);
+                if (!confirmFallback) {
+                    const totalAmountSOL = tiers.reduce((sum, t) => sum + payouts[t], 0);
+                    return res.status(502).json({
+                        error: 'SWAP_PREPARE_FAILED',
+                        details,
+                        action: 'CONFIRM_SOL_FALLBACK',
+                        message: 'Jupiter swap preparation failed. Confirm to fallback to SOL distribution.',
+                        fallbackProposal: {
+                            winners: tiers.map(t => ({ tier: t, address: winners[t], amountSOL: payouts[t] })),
+                            totalAmountSOL
+                        }
+                    });
+                }
+                // If confirmFallback is true, proceed to SOL build below
             }
         }
         // OPTION 2: Build Standard SOL Transfer Transaction (Default or Fallback)

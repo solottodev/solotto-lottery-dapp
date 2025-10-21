@@ -6,7 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.register = register;
 exports.login = login;
 const client_1 = require("@prisma/client");
-const bcrypt_1 = __importDefault(require("bcrypt"));
+const bcryptjs_1 = __importDefault(require("bcryptjs"));
 const jwt_1 = require("../utils/jwt");
 const prisma = new client_1.PrismaClient();
 async function register(req, res) {
@@ -19,7 +19,7 @@ async function register(req, res) {
         if (existingUser) {
             return res.status(409).json({ error: "User already exists" });
         }
-        const hashedPassword = await bcrypt_1.default.hash(password, 10);
+        const hashedPassword = await bcryptjs_1.default.hash(password, 10);
         const user = await prisma.user.create({
             data: {
                 email,
@@ -43,7 +43,7 @@ async function login(req, res) {
         if (!user) {
             return res.status(401).json({ error: "Invalid credentials" });
         }
-        const passwordMatch = await bcrypt_1.default.compare(password, user.password);
+        const passwordMatch = await bcryptjs_1.default.compare(password, user.password);
         if (!passwordMatch) {
             return res.status(401).json({ error: "Invalid credentials" });
         }
