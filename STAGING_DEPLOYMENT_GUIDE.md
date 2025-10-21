@@ -77,10 +77,11 @@ Click "Environment" tab and add these variables:
 NODE_ENV=staging
 PORT=3000
 
-# Database (Supabase)
-DATABASE_URL=postgresql://postgres.nkiezfkiasqgefzgyuwb:Beanie22$@aws-0-us-east-1.pooler.supabase.com:6543/postgres?pgbouncer=true
-DATABASE_URL_RO=postgresql://postgres.nkiezfkiasqgefzgyuwb:Beanie22$@aws-0-us-east-1.pooler.supabase.com:6543/postgres?pgbouncer=true
-DATABASE_URL_DIRECT=postgresql://postgres.nkiezfkiasqgefzgyuwb:Beanie22$@aws-0-us-east-1.pooler.supabase.com:5432/postgres
+# Database (Supabase) - IMPORTANT: URL-encode special characters in password!
+# If password is "Beanie22$", use "Beanie22%24"
+DATABASE_URL=postgresql://postgres.nkiezfkiasqgefzgyuwb:REPLACE_WITH_URL_ENCODED_PASSWORD@aws-0-us-east-1.pooler.supabase.com:6543/postgres
+DATABASE_URL_RO=postgresql://postgres.nkiezfkiasqgefzgyuwb:REPLACE_WITH_URL_ENCODED_PASSWORD@aws-0-us-east-1.pooler.supabase.com:6543/postgres
+DATABASE_URL_DIRECT=postgresql://postgres.nkiezfkiasqgefzgyuwb:REPLACE_WITH_URL_ENCODED_PASSWORD@aws-0-us-east-1.pooler.supabase.com:5432/postgres
 
 # JWT Secret (generate new)
 JWT_SECRET=<run: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))">
@@ -100,9 +101,11 @@ HARD_BLACKLIST=["11111111111111111111111111111111"]
 ```
 
 **⚠️ IMPORTANT:**
+- **URL-encode special characters** in database password (`$` → `%24`, `@` → `%40`, `#` → `%23`)
 - Generate a NEW JWT_SECRET for staging (don't reuse production)
 - **NO operator wallet private key needed** - operator connects via Phantom wallet in frontend
 - Never commit secrets to Git
+- Do NOT add `?pgbouncer=true` to connection strings - it causes authentication issues
 
 ### Step 4: Verify Build Scripts
 
@@ -240,12 +243,35 @@ Data is filtered by `network` field:
 
 This allows using the same database for both environments safely.
 
-### Run Migrations (If Needed)
+### Run Migrations and Fix Permissions
+
+**Step 1: Deploy Prisma migrations**
 
 ```bash
 # From apps/backend directory
 npx prisma migrate deploy
 ```
+
+**Step 2: Fix Supabase Permissions (CRITICAL)**
+
+After running migrations, you must fix table permissions for the `postgres` user:
+
+1. Go to Supabase Dashboard → **SQL Editor**
+2. Click **New Query**
+3. Copy and paste the contents of `apps/backend/prisma/migrations/fix_supabase_permissions.sql`
+4. Click **Run**
+5. Verify success - you should see "Success. No rows returned"
+
+**What this does:**
+- Grants full permissions to the `postgres` role on all tables
+- Disables Row Level Security (RLS) - not needed for backend-only apps
+- Fixes the "RLS Disabled in Public" warnings you see in Supabase dashboard
+- Resolves "Tenant or user not found" connection errors
+
+**Why this is needed:**
+- Prisma migrations create tables but don't set up Supabase-specific permissions
+- Without proper grants, the connection pooler can't access tables
+- RLS is designed for Supabase Auth, which we're not using (we use JWT auth in backend)
 
 ---
 
@@ -392,6 +418,7 @@ Prize Source: <your-funded-devnet-wallet>
 2. Database connection errors
    - Test connection string locally
    - Check Supabase IP allowlist (if enabled)
+   - Verify password is URL-encoded if it contains special characters
 
 3. Build errors
    - Check build logs in Render
@@ -406,6 +433,83 @@ npm install
 npm run build
 npm start
 ```
+
+### Database Connection Error: "Tenant or user not found"
+
+**Symptom:** Error in logs: `FATAL: Tenant or user not found`
+
+**Root Cause:** This Supabase error means one of:
+1. Password contains special characters that need URL encoding
+2. Incorrect connection pooler endpoint
+3. Database user doesn't exist or wrong credentials
+
+**Solution:**
+
+1. **URL-encode your password** if it contains special characters:
+   - `$` should be `%24`
+   - `@` should be `%40`
+   - `#` should be `%23`
+   - Example: `Beanie22$` becomes `Beanie22%24`
+
+2. **Get correct connection string from Supabase:**
+   - Go to Supabase Dashboard → Project Settings → Database
+   - Use "Connection Pooling" section (Session mode)
+   - Copy the full connection string
+   - Port should be 6543 for pooling
+
+3. **Correct format:**
+   ```
+   postgresql://postgres.[PROJECT-REF]:[PASSWORD]@aws-0-us-east-1.pooler.supabase.com:6543/postgres
+   ```
+
+4. **Update Render environment variables:**
+   - Remove `?pgbouncer=true` from the end (causes issues)
+   - Ensure password is URL-encoded
+   - Test with direct connection first (port 5432) if pooling fails
+
+**Example Fix:**
+```env
+# BEFORE (might fail)
+DATABASE_URL=postgresql://postgres.nkiezfkiasqgefzgyuwb:Beanie22$@aws-0-us-east-1.pooler.supabase.com:6543/postgres?pgbouncer=true
+
+# AFTER (should work)
+DATABASE_URL=postgresql://postgres.nkiezfkiasqgefzgyuwb:Beanie22%24@aws-0-us-east-1.pooler.supabase.com:6543/postgres
+```
+
+### Supabase RLS Warnings: "RLS Disabled in Public"
+
+**Symptom:** Supabase dashboard shows RLS warnings on all tables
+
+**Root Cause:** This is actually **two separate issues**:
+
+1. **Missing table permissions** - Prisma migrations don't grant access to the `postgres` role
+2. **RLS not configured** - Not a problem for backend-only apps
+
+**Impact:**
+- The warnings themselves are harmless (RLS isn't needed for backend-only apps)
+- BUT the missing permissions cause database connection failures
+- Backend can't query tables without proper grants
+
+**Solution:**
+
+Run the permissions fix script:
+
+```bash
+# 1. Go to Supabase Dashboard → SQL Editor
+# 2. Click "New Query"
+# 3. Copy contents of: apps/backend/prisma/migrations/fix_supabase_permissions.sql
+# 4. Paste and click "Run"
+```
+
+This will:
+- Grant full permissions to `postgres` role
+- Explicitly disable RLS (removes warnings)
+- Allow backend to access all tables
+
+**After running the script:**
+- RLS warnings will disappear
+- Database connection errors will be resolved
+- Health check should return `{"ok":true,"database":"healthy"}`
 
 ### Frontend API Errors
 
