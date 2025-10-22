@@ -14,8 +14,8 @@ export interface NetworkConfig {
 
 const MAINNET_CONFIG: NetworkConfig = {
   network: 'mainnet-beta',
-  rpcUrl: process.env.ALCHEMY_RPC_URL_MAINNET || 'https://solana-mainnet.g.alchemy.com/v2/YOUR_KEY',
-  rpcFallback: 'https://api.mainnet-beta.solana.com',
+  rpcUrl: process.env.ALCHEMY_RPC_URL_MAINNET || process.env.ALCHEMY_RPC_URL || 'https://solana-mainnet.g.alchemy.com/v2/YOUR_KEY',
+  rpcFallback: process.env.SOLANA_RPC_FALLBACK || 'https://api.mainnet-beta.solana.com',
   lottoMint: 'HJSnJaQv3u4ZyvPXiQPTyBsYJpggWsZvVH8yedjBpump', // Real mainnet $LOTTO
   lottoDecimals: 6,
   explorerUrl: 'https://solscan.io',

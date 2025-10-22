@@ -186,7 +186,16 @@ router.get('/', async (_req, res) => {
         try {
             const rpcService = (0, rpc_service_1.getRPCService)();
             const health = await rpcService.testConnections();
-            systemStatus.rpc = (health.primary.healthy && health.fallback.healthy) ? 'healthy' : 'degraded';
+            // Determine status based on which connections are healthy
+            if (health.primary.healthy && health.fallback.healthy) {
+                systemStatus.rpc = 'healthy';
+            }
+            else if (health.primary.healthy || health.fallback.healthy) {
+                systemStatus.rpc = 'healthy'; // At least one working is sufficient
+            }
+            else {
+                systemStatus.rpc = 'unhealthy';
+            }
         }
         catch {
             systemStatus.rpc = 'unhealthy';

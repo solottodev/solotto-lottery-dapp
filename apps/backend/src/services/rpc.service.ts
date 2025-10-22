@@ -145,7 +145,7 @@ export class RPCService {
   }
 
   /**
-   * Test RPC connectivity
+   * Test RPC connectivity with timeout
    */
   async testConnections(): Promise<{
     primary: { healthy: boolean; slot?: number; error?: string };
@@ -153,7 +153,13 @@ export class RPCService {
   }> {
     const testConnection = async (conn: Connection, name: string) => {
       try {
-        const slot = await conn.getSlot();
+        // Add timeout to prevent hanging
+        const timeoutPromise = new Promise<number>((_, reject) =>
+          setTimeout(() => reject(new Error('Connection timeout after 5s')), 5000)
+        );
+        const slotPromise = conn.getSlot();
+
+        const slot = await Promise.race([slotPromise, timeoutPromise]);
         console.log(`✅ ${name} RPC healthy (slot: ${slot})`);
         return { healthy: true, slot };
       } catch (error) {

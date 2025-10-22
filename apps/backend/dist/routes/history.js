@@ -181,7 +181,7 @@ router.get('/wallet/:address', async (req, res) => {
         const where = { wallet: address };
         const [total, entries] = await Promise.all([
             prisma_1.prismaRO.participant.count({ where }),
-            prisma_1.prismaRO.participant.findMany({ where, orderBy: { createdAt: 'desc' }, include: { round: true }, skip, take: size }),
+            prisma_1.prismaRO.participant.findMany({ where, orderBy: { createdAt: 'desc' }, include: { Round: true }, skip, take: size }),
         ]);
         return res.json({ address, entries, meta: { page, size, total, pages: Math.ceil(total / size) } });
     }
@@ -266,7 +266,7 @@ router.get('/export', async (_req, res) => {
 // GET /history/export/participants - CSV of all participants
 router.get('/export/participants', async (_req, res) => {
     try {
-        const participants = await prisma_1.prismaRO.participant.findMany({ include: { round: true } });
+        const participants = await prisma_1.prismaRO.participant.findMany({ include: { Round: true } });
         const headers = [
             'Round ID',
             'Participant ID',
@@ -286,9 +286,9 @@ router.get('/export/participants', async (_req, res) => {
             p.roundId,
             p.id,
             p.wallet,
-            p.round?.startDate?.toISOString?.() || '',
-            p.round?.endDate?.toISOString?.() || '',
-            p.round?.drawingDate?.toISOString?.() || '',
+            p.Round?.startDate?.toISOString?.() || '',
+            p.Round?.endDate?.toISOString?.() || '',
+            p.Round?.drawingDate?.toISOString?.() || '',
             p.tokenLottoBalanceEnd?.toString?.() || '',
             p.tokenUsdBalance?.toString?.() || '',
             p.tier?.toString?.() || '',
@@ -441,7 +441,7 @@ router.get('/search', async (req, res) => {
         const where = { wallet: { contains: q } };
         const [total, entries] = await Promise.all([
             prisma_1.prismaRO.participant.count({ where }),
-            prisma_1.prismaRO.participant.findMany({ where, orderBy: { createdAt: 'desc' }, include: { round: true }, skip, take: size }),
+            prisma_1.prismaRO.participant.findMany({ where, orderBy: { createdAt: 'desc' }, include: { Round: true }, skip, take: size }),
         ]);
         return res.json({ entries, meta: { page, size, total, pages: Math.ceil(total / size) } });
     }
@@ -460,14 +460,12 @@ router.get('/export/round/:id/full', async (req, res) => {
         const round = await prisma_1.default.round.findUnique({
             where: { id: roundId },
             include: {
-                participants: {
-                    orderBy: [{ tier: 'asc' }, { wallet: 'asc' }]
-                },
-                snapshots: {
+                Participant: true,
+                Snapshot: {
                     orderBy: { createdAt: 'desc' },
                     take: 1
                 },
-                drawings: {
+                Drawing: {
                     orderBy: { createdAt: 'desc' },
                     take: 1
                 }
@@ -475,8 +473,8 @@ router.get('/export/round/:id/full', async (req, res) => {
         });
         if (!round)
             return res.status(404).json({ error: 'Round not found' });
-        const snapshot = round.snapshots[0];
-        const drawing = round.drawings[0];
+        const snapshot = round.Snapshot[0];
+        const drawing = round.Drawing[0];
         const winners = round.tierWinners || {};
         const payouts = round.tierPayouts || {};
         const txSignatures = round.distributionTxSignatures || [];
@@ -530,7 +528,7 @@ router.get('/export/round/:id/full', async (req, res) => {
         ];
         // Build rows - one per participant
         const rows = [];
-        for (const participant of round.participants) {
+        for (const participant of round.Participant) {
             // Determine if participant is a winner and which tier
             let prizeTierWon = '';
             let prizeAmount = '';

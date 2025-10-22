@@ -109,12 +109,15 @@ class RPCService {
         return this.executeWithFallback(async (conn) => await conn.getLatestBlockhash(), 'getLatestBlockhash');
     }
     /**
-     * Test RPC connectivity
+     * Test RPC connectivity with timeout
      */
     async testConnections() {
         const testConnection = async (conn, name) => {
             try {
-                const slot = await conn.getSlot();
+                // Add timeout to prevent hanging
+                const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Connection timeout after 5s')), 5000));
+                const slotPromise = conn.getSlot();
+                const slot = await Promise.race([slotPromise, timeoutPromise]);
                 console.log(`✅ ${name} RPC healthy (slot: ${slot})`);
                 return { healthy: true, slot };
             }

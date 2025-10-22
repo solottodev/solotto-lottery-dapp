@@ -1,6 +1,6 @@
 # Solotto Lottery dApp
 
-**Status:** 🟡 Pre-Production (Mainnet Deployment In Progress)
+**Status:** 🟢 Ready for Mainnet Deployment
 
 This is the full-stack monorepo for the Solotto on-chain lottery system on Solana.
 
@@ -31,22 +31,23 @@ Solotto is a provably fair, on-chain lottery platform built on Solana. It enable
 
 ### Deployment Status
 - 🟢 **Database:** Supabase Pro - Operational
-- 🟡 **Backend:** In Development (2FA, Jupiter integration)
-- 🟡 **Frontend:** In Development (mainnet config)
-- 🔴 **Mainnet Launch:** Target 4-6 weeks
+- 🟢 **Backend:** Complete with 2FA and Jupiter integration
+- 🟢 **Frontend:** Complete and tested on staging
+- 🟢 **Mainnet Launch:** Ready for deployment (October 2025)
 
 See [MAINNET_DEPLOYMENT_PLAN.md](./MAINNET_DEPLOYMENT_PLAN.md) for detailed deployment roadmap.
 
 ## 📋 Development Status
 
-Current implementation phase:
+**All features complete and tested!**
 - ✅ Core modules complete (Control, Snapshot, Drawing, Harvest, Distribution)
 - ✅ Database migrated to Supabase Pro
-- ✅ Email/password authentication
-- ✅ Cryptographic drawing system
-- 🟡 2FA implementation (in progress)
-- 🟡 Jupiter swap integration (in progress)
-- 🟡 E2E test suite (in progress)
+- ✅ Email/password authentication with 2FA (TOTP)
+- ✅ Cryptographic drawing system (crypto.randomBytes + blockchain audit)
+- ✅ Jupiter swap integration (SOL → LOTTO with fallback)
+- ✅ E2E test suite implemented
+- ✅ Staging deployment successful
+- 🟢 **Ready for production deployment**
 
 See [IMPLEMENTATION_CHECKLIST.md](./IMPLEMENTATION_CHECKLIST.md) for detailed progress tracking.
 
@@ -199,9 +200,39 @@ npx prisma studio
 npx prisma migrate status
 ```
 
+## 🚀 Mainnet Deployment
+
+### Quick Start (Deployment Scripts)
+```bash
+# Step 1: Generate JWT secret for production
+npm run deploy:jwt
+
+# Step 2: Verify configuration before deployment
+npm run deploy:verify
+
+# Step 3: Run pre-deployment checks
+npm run deploy:check
+
+# Step 4: Follow deployment guide
+# See READY_TO_DEPLOY.md for detailed instructions
+```
+
+### Deployment Documentation
+- **[READY_TO_DEPLOY.md](./READY_TO_DEPLOY.md)** - 🎯 **START HERE** - Quick deployment guide
+- **[DEPLOYMENT_CHECKLIST.md](./DEPLOYMENT_CHECKLIST.md)** - Step-by-step checklist
+- **[MAINNET_DEPLOYMENT_GUIDE.md](./MAINNET_DEPLOYMENT_GUIDE.md)** - Comprehensive deployment guide
+- **[MAINNET_DEPLOYMENT_PLAN.md](./MAINNET_DEPLOYMENT_PLAN.md)** - Full deployment plan
+
+### Deployment Timeline
+- **Configure Secrets:** 15 minutes
+- **Deploy Backend (Render):** 20 minutes
+- **Deploy Frontend (Vercel):** 15 minutes
+- **Verification & Monitoring:** 30 minutes
+- **Total:** ~1.5 hours + 24-48h monitoring before first round
+
 ## 🧪 Testing
 
-### E2E Test Suite (In Development)
+### E2E Test Suite
 ```bash
 cd apps/backend
 npm test                 # Run all tests
@@ -235,7 +266,7 @@ Old documentation has been moved to `docs/archive/` and is preserved for histori
 
 ### Authentication
 - Operator accounts use email/password authentication
-- 2FA (TOTP) required for all operator logins *(In Development)*
+- 2FA (TOTP) required for all operator logins (Google Authenticator/Authy compatible)
 - JWT tokens with 1-hour expiration
 - bcrypt password hashing (10 salt rounds)
 
