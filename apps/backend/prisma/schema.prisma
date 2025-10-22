@@ -8,7 +8,7 @@ datasource db {
 }
 
 model Drawing {
-  id           String        @id
+  id           String        @id @default(uuid())
   roundId      String
   status       DrawingStatus @default(IDLE)
   startedAt    DateTime?
@@ -22,7 +22,7 @@ model Drawing {
 }
 
 model LotteryConfig {
-  id                       String       @id
+  id                       String       @id @default(uuid())
   tokenMint                String
   tokenDecimals            Int
   snapshotStart            DateTime
@@ -36,12 +36,12 @@ model LotteryConfig {
   blacklist                Json         @default("[]")
   createdById              String
   createdAt                DateTime     @default(now())
-  updatedAt                DateTime
+  updatedAt                DateTime     @updatedAt
   User                     User         @relation(fields: [createdById], references: [id])
 }
 
 model Participant {
-  id                     String   @id
+  id                     String   @id @default(uuid())
   roundId                String
   wallet                 String
   tier                   Int?
@@ -59,7 +59,7 @@ model Participant {
 }
 
 model Round {
-  id                       String        @id
+  id                       String        @id @default(uuid())
   startDate                DateTime
   endDate                  DateTime
   drawingDate              DateTime?
@@ -88,7 +88,7 @@ model Round {
 }
 
 model Snapshot {
-  id          String         @id
+  id          String         @id @default(uuid())
   roundId     String
   status      SnapshotStatus @default(IDLE)
   startedAt   DateTime?
@@ -98,11 +98,11 @@ model Snapshot {
 }
 
 model User {
-  id            String          @id
+  id            String          @id @default(uuid())
   email         String          @unique
   password      String
   createdAt     DateTime        @default(now())
-  updatedAt     DateTime
+  updatedAt     DateTime        @updatedAt
   totpSecret    String?
   totpEnabled   Boolean         @default(false)
   LotteryConfig LotteryConfig[]
