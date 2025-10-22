@@ -14,7 +14,10 @@
   "scripts": {
     "dev": "concurrently \"yarn workspace frontend dev\" \"yarn workspace backend dev\"",
     "build": "yarn workspace frontend build && yarn workspace backend build",
-    "test": "yarn workspaces run test"
+    "test": "yarn workspaces run test",
+    "deploy:check": "node scripts/pre-deployment-check.js",
+    "deploy:verify": "node scripts/verify-production-config.js",
+    "deploy:jwt": "node scripts/generate-jwt-secret.js"
   },
   "devDependencies": {
     "@types/bcryptjs": "^3.0.0",
