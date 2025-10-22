@@ -37,6 +37,8 @@ export const createConfig = async (
     prizeSourceBalanceSol: data.prizeSourceBalanceSol,
   }
 
+  console.log('[API] Sending config to /api/control:', JSON.stringify(payload, null, 2))
+
   const response = await fetch('/api/control', {
     method: 'POST',
     headers: {
@@ -48,10 +50,13 @@ export const createConfig = async (
 
   if (!response.ok) {
     const errorText = await response.text()
+    console.error('[API] Config submission failed:', errorText)
     throw new Error(`Failed to submit config: ${errorText}`)
   }
 
-  return await response.json()
+  const result = await response.json()
+  console.log('[API] Config submission successful:', result)
+  return result
 }
 
 // --- Snapshot API (mocked for now) ---

@@ -71,8 +71,11 @@ export const ControlForm = () => {
         return
       }
 
+      console.log('[ControlForm] Fetching wallet balance for:', publicKey.toBase58())
       const balanceLamports = await connection.getBalance(publicKey)
       const balanceSol = balanceLamports / LAMPORTS_PER_SOL
+      console.log('[ControlForm] Wallet balance:', balanceSol, 'SOL')
+
       const prizeDistributionPercent = data.prizeDistributionPercent
       const prizePoolSol = Number((balanceSol * (prizeDistributionPercent / 100)).toFixed(6))
 
@@ -83,6 +86,7 @@ export const ControlForm = () => {
         prizeSourceBalanceSol: balanceSol,
       }
 
+      console.log('[ControlForm] Submitting config with payload:', JSON.stringify(payload, null, 2))
       const resp = await createConfig(payload, jwt || '')
       setControlSubmitted(true)
       setControlConfig({
@@ -96,9 +100,38 @@ export const ControlForm = () => {
       if (resp?.roundId) setRoundId(resp.roundId)
       // Participant counts will be set after snapshot confirmation
       setParticipantCounts(null)
-    } catch (error) {
+    } catch (error: any) {
       console.error('Config creation failed:', error)
-      alert('Invalid parameters or server error. Please review inputs and try again.')
+
+      // Try to extract the actual error message from the API response
+      let errorMessage = 'Invalid parameters or server error. Please review inputs and try again.'
+
+      if (error?.message) {
+        // The error message from api.ts will contain the response text
+        errorMessage = error.message
+
+        // Try to parse it as JSON to get more details
+        try {
+          const match = error.message.match(/Failed to submit config: (.+)/)
+          if (match && match[1]) {
+            const parsed = JSON.parse(match[1])
+            if (parsed.error) {
+              errorMessage = `Error: ${parsed.error}`
+              if (parsed.message) errorMessage += `\n${parsed.message}`
+              if (parsed.issues) {
+                errorMessage += '\n\nValidation issues:\n' + parsed.issues.map((i: any) => `- ${i.path}: ${i.message}`).join('\n')
+              }
+              if (parsed.provided !== undefined && parsed.actual !== undefined) {
+                errorMessage += `\n\nProvided: ${parsed.provided} SOL\nActual: ${parsed.actual} SOL`
+              }
+            }
+          }
+        } catch {
+          // If parsing fails, just use the error message as-is
+        }
+      }
+
+      alert(errorMessage)
     }
   }
 
