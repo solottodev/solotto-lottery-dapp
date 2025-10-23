@@ -6,6 +6,7 @@ import { lotteryConfigSchema } from '../utils/zodSchemas';
 import { ConfigStatus } from '@prisma/client';
 import { PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { getRPCService } from '../services/rpc.service';
+import { getTradingActivityService } from '../services/trading-activity.service';
 
 
 const router = express.Router();
@@ -173,6 +174,20 @@ router.post('/', requireJwt, async (req, res) => {
         tierPayouts: {},
       },
     })
+
+    // ✅ MAINNET FEATURE: Capture START balances for trading activity calculation
+    // This creates the baseline snapshot to compare against END balances later
+    try {
+      console.log(`\n📸 Capturing START balances for round ${round.id}...`);
+      const tradingService = getTradingActivityService();
+      await tradingService.captureStartBalances(round.id, tokenMint);
+      console.log(`✅ START balances captured successfully\n`);
+    } catch (balanceError) {
+      // Log warning but don't fail the request - this is a non-critical error
+      // The round can still be created, but trading activity won't be calculated
+      console.warn('⚠️  Failed to capture START balances (non-critical):', balanceError);
+      console.warn('   Trading activity calculation may not work for this round');
+    }
 
     return res.status(201).json({ message: 'Config saved', config, effectiveBlacklist: combined, roundId: round.id, prizePoolSol });
   } catch (err) {

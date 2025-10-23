@@ -1,0 +1,287 @@
+// apps/backend/src/services/trading-activity.service.ts
+import { getSnapshotService } from './snapshot.service';
+import prisma from '../prisma';
+
+/**
+ * Service for tracking trading activity and calculating eligibility
+ *
+ * This service implements the mainnet eligibility requirement:
+ * - Wallets must have 50%+ trading activity (buying OR selling) during the round period
+ * - Activity is calculated by comparing balance at START vs END of round
+ * - Returns the HIGHER of buy% or sell% (wallets can qualify through either)
+ */
+export class TradingActivityService {
+  /**
+   * Capture START balances for all token holders at round creation
+   * This creates the baseline for calculating trading activity later
+   */
+  async captureStartBalances(
+    roundId: string,
+    mintAddress: string
+  ): Promise<void> {
+    console.log(`📸 Capturing START balances for round ${roundId}...`);
+
+    try {
+      const snapshotService = getSnapshotService();
+      const holders = await snapshotService.getTokenHolders(mintAddress);
+
+      console.log(`   Found ${holders.length} token holders at START`);
+
+      // Batch insert for efficiency
+      const batchSize = 100;
+      let inserted = 0;
+
+      for (let i = 0; i < holders.length; i += batchSize) {
+        const batch = holders.slice(i, i + batchSize);
+
+        await prisma.balanceSnapshot.createMany({
+          data: batch.map(holder => ({
+            roundId,
+            wallet: holder.owner,
+            tokenBalance: holder.balanceUi,
+            snapshotType: 'START',
+          })),
+          skipDuplicates: true, // Prevent duplicate entries
+        });
+
+        inserted += batch.length;
+        console.log(`   Captured ${inserted}/${holders.length} START balances...`);
+      }
+
+      console.log(`✅ Successfully captured ${holders.length} START balances`);
+    } catch (error) {
+      console.error('❌ Failed to capture START balances:', error);
+      throw new Error(`Failed to capture START balances: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  /**
+   * Capture END balances for all token holders at snapshot confirmation
+   * This completes the data needed to calculate trading activity
+   */
+  async captureEndBalances(
+    roundId: string,
+    mintAddress: string
+  ): Promise<void> {
+    console.log(`📸 Capturing END balances for round ${roundId}...`);
+
+    try {
+      const snapshotService = getSnapshotService();
+      const holders = await snapshotService.getTokenHolders(mintAddress);
+
+      console.log(`   Found ${holders.length} token holders at END`);
+
+      // Batch insert for efficiency
+      const batchSize = 100;
+      let inserted = 0;
+
+      for (let i = 0; i < holders.length; i += batchSize) {
+        const batch = holders.slice(i, i + batchSize);
+
+        await prisma.balanceSnapshot.createMany({
+          data: batch.map(holder => ({
+            roundId,
+            wallet: holder.owner,
+            tokenBalance: holder.balanceUi,
+            snapshotType: 'END',
+          })),
+          skipDuplicates: true, // Prevent duplicate entries
+        });
+
+        inserted += batch.length;
+        console.log(`   Captured ${inserted}/${holders.length} END balances...`);
+      }
+
+      console.log(`✅ Successfully captured ${holders.length} END balances`);
+    } catch (error) {
+      console.error('❌ Failed to capture END balances:', error);
+      throw new Error(`Failed to capture END balances: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  /**
+   * Calculate trade activity percentage for a single wallet
+   *
+   * Returns the HIGHER of:
+   * - Buy%: ((end - start) / start) × 100
+   * - Sell%: ((start - end) / start) × 100
+   *
+   * This allows wallets to qualify through EITHER buying OR selling activity
+   *
+   * Special cases:
+   * - New wallet (0 → X): 100% buy activity
+   * - Closed wallet (X → 0): 100% sell activity
+   * - No change (X → X): 0% activity (ineligible)
+   */
+  async calculateTradeActivity(
+    roundId: string,
+    wallet: string
+  ): Promise<number> {
+    try {
+      const startSnapshot = await prisma.balanceSnapshot.findUnique({
+        where: {
+          roundId_wallet_snapshotType: {
+            roundId,
+            wallet,
+            snapshotType: 'START'
+          }
+        }
+      });
+
+      const endSnapshot = await prisma.balanceSnapshot.findUnique({
+        where: {
+          roundId_wallet_snapshotType: {
+            roundId,
+            wallet,
+            snapshotType: 'END'
+          }
+        }
+      });
+
+      // Case 1: New wallet (no START balance, has END balance)
+      // Going from 0 to any positive amount = 100% buy activity
+      if (!startSnapshot && endSnapshot) {
+        return endSnapshot.tokenBalance > 0 ? 100 : 0;
+      }
+
+      // Case 2: Wallet closed (has START balance, no END balance)
+      // Sold everything = 100% sell activity
+      if (startSnapshot && !endSnapshot) {
+        return 100;
+      }
+
+      // Case 3: Wallet existed at both START and END
+      if (startSnapshot && endSnapshot) {
+        const startBal = startSnapshot.tokenBalance;
+        const endBal = endSnapshot.tokenBalance;
+
+        // Edge case: started with 0 tokens
+        if (startBal === 0) {
+          return endBal > 0 ? 100 : 0;
+        }
+
+        // Calculate buy % and sell %
+        const buyPercent = ((endBal - startBal) / startBal) * 100;
+        const sellPercent = ((startBal - endBal) / startBal) * 100;
+
+        // Return the HIGHER of the two (allows qualification via either buying OR selling)
+        return Math.max(0, buyPercent, sellPercent);
+      }
+
+      // Case 4: No data available (shouldn't happen in normal flow)
+      console.warn(`⚠️  No snapshot data found for wallet ${wallet} in round ${roundId}`);
+      return 0;
+
+    } catch (error) {
+      console.error(`❌ Error calculating trade activity for ${wallet}:`, error);
+      return 0; // Default to 0% activity on error
+    }
+  }
+
+  /**
+   * Update eligibility scores for all participants in a round
+   * This calculates trading activity % and stores it in the eligibilityScore field
+   *
+   * Note: This only calculates trade %. The final isEligible flag is set later
+   * after checking BOTH trade% AND USD balance requirements.
+   */
+  async updateParticipantEligibility(
+    roundId: string,
+    minTradePercent: number
+  ): Promise<{ total: number; eligible: number }> {
+    console.log(`📊 Calculating trade activity for round ${roundId}...`);
+    console.log(`   Minimum required: ${minTradePercent}%`);
+
+    try {
+      const participants = await prisma.participant.findMany({
+        where: { roundId }
+      });
+
+      console.log(`   Processing ${participants.length} participants...`);
+
+      let eligibleCount = 0;
+
+      for (const participant of participants) {
+        const tradePercent = await this.calculateTradeActivity(
+          roundId,
+          participant.wallet
+        );
+
+        const meetsTradeThreshold = tradePercent >= minTradePercent;
+
+        if (meetsTradeThreshold) eligibleCount++;
+
+        // Update the participant with their trading activity score
+        await prisma.participant.update({
+          where: { id: participant.id },
+          data: {
+            eligibilityScore: tradePercent,
+            // Note: isEligible will be set in snapshot/confirm route
+            // after checking BOTH trade% AND token balance requirements
+          }
+        });
+
+        const status = meetsTradeThreshold ? '✅' : '❌';
+        console.log(
+          `   ${status} ${participant.wallet.slice(0, 8)}... - ` +
+          `Trade Activity: ${tradePercent.toFixed(2)}%`
+        );
+      }
+
+      console.log(`\n✅ Trading activity calculated for ${participants.length} participants`);
+      console.log(`   Meets trade threshold (${minTradePercent}%): ${eligibleCount}/${participants.length}`);
+      console.log(`   Note: Final eligibility also requires $50+ USD balance`);
+
+      return {
+        total: participants.length,
+        eligible: eligibleCount
+      };
+
+    } catch (error) {
+      console.error('❌ Failed to update participant eligibility:', error);
+      throw new Error(`Failed to update participant eligibility: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  /**
+   * Get trading activity statistics for a round (for debugging/monitoring)
+   */
+  async getActivityStats(roundId: string): Promise<{
+    totalSnapshots: number;
+    startSnapshots: number;
+    endSnapshots: number;
+    participantsWithActivity: number;
+  }> {
+    const [totalSnapshots, startSnapshots, endSnapshots, participants] = await Promise.all([
+      prisma.balanceSnapshot.count({ where: { roundId } }),
+      prisma.balanceSnapshot.count({ where: { roundId, snapshotType: 'START' } }),
+      prisma.balanceSnapshot.count({ where: { roundId, snapshotType: 'END' } }),
+      prisma.participant.count({
+        where: {
+          roundId,
+          eligibilityScore: { not: null }
+        }
+      })
+    ]);
+
+    return {
+      totalSnapshots,
+      startSnapshots,
+      endSnapshots,
+      participantsWithActivity: participants
+    };
+  }
+}
+
+// Singleton instance
+let tradingActivityServiceInstance: TradingActivityService | null = null;
+
+/**
+ * Get the singleton instance of TradingActivityService
+ */
+export function getTradingActivityService(): TradingActivityService {
+  if (!tradingActivityServiceInstance) {
+    tradingActivityServiceInstance = new TradingActivityService();
+  }
+  return tradingActivityServiceInstance;
+}

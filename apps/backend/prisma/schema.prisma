@@ -59,29 +59,30 @@ model Participant {
 }
 
 model Round {
-  id                       String        @id @default(uuid())
+  id                       String            @id @default(uuid())
   startDate                DateTime
   endDate                  DateTime
   drawingDate              DateTime?
   distributionDate         DateTime?
   prizePoolSol             Float
-  prizeDistributionPercent Float         @default(70.0)
+  prizeDistributionPercent Float             @default(70.0)
   prizeSourceWallet        String?
   prizeSourceBalanceSol    Float?
-  totalParticipants        Int           @default(0)
-  eligibleParticipants     Int           @default(0)
+  totalParticipants        Int               @default(0)
+  eligibleParticipants     Int               @default(0)
   tierWinners              Json
   tierPayouts              Json
-  distributionTxSignatures Json?         @default("[]")
-  distributionAtaAddresses Json?         @default("{}")
-  swapToLotto              Boolean       @default(false)
+  distributionTxSignatures Json?             @default("[]")
+  distributionAtaAddresses Json?             @default("{}")
+  swapToLotto              Boolean           @default(false)
   swapRouteId              String?
   swapSlippage             Float?
-  createdAt                DateTime      @default(now())
-  network                  String        @default("devnet")
+  createdAt                DateTime          @default(now())
+  network                  String            @default("devnet")
   Drawing                  Drawing[]
   Participant              Participant[]
   Snapshot                 Snapshot[]
+  BalanceSnapshot          BalanceSnapshot[]
 
   @@index([drawingDate])
   @@index([network])
@@ -130,4 +131,18 @@ enum SnapshotStatus {
   RUNNING
   COMPLETED
   CONFIRMED
+}
+
+model BalanceSnapshot {
+  id            String   @id @default(uuid())
+  roundId       String
+  wallet        String
+  tokenBalance  Float
+  snapshotType  String
+  capturedAt    DateTime @default(now())
+  round         Round    @relation(fields: [roundId], references: [id], onDelete: Cascade)
+
+  @@unique([roundId, wallet, snapshotType])
+  @@index([roundId, wallet, snapshotType])
+  @@index([capturedAt])
 }
