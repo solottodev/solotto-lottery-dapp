@@ -455,7 +455,7 @@ router.get('/export/round/:id/full', async (req, res) => {
     const network = process.env.SOLANA_NETWORK || 'devnet'
     const cluster = network === 'mainnet-beta' ? '' : `?cluster=${network}`
 
-    // CSV Headers (matching source of truth.csv exactly)
+    // CSV Headers (updated with trading activity fields)
     const headers = [
       'Round ID',
       'Wallet Address',
@@ -479,10 +479,11 @@ router.get('/export/round/:id/full', async (req, res) => {
       'Drawing Seed',
       'Drawing Blockhash',
       'Drawing Slot',
-      'Token LOTTO Balance',
+      'Token LOTTO Balance Start',    // NEW: For trading activity transparency
+      'Token LOTTO Balance End',      // RENAMED: Was "Token LOTTO Balance"
       'Token USD Balance',
       'Tier',
-      'Eligibility Score',
+      'Trading Activity %',            // RENAMED: Was "Eligibility Score"
       'Is Eligible',
       'Is Winner',
       'Is Blacklisted',
@@ -567,10 +568,11 @@ router.get('/export/round/:id/full', async (req, res) => {
         drawing?.seed || '',
         drawing?.blockhash || '',
         drawing?.slot?.toString() || '',
-        (participant as any).tokenLottoBalanceEnd?.toString() || '',
-        (participant as any).tokenUsdBalance?.toString() || '',
+        participant.tokenLottoBalanceStart?.toString() || '0', // NEW: START balance for trading activity
+        participant.tokenLottoBalanceEnd?.toString() || '0',   // END balance (determines tier)
+        participant.tokenUsdBalance?.toString() || '0',
         participant.tier?.toString() || '',
-        participant.eligibilityScore?.toString() || '', // Trading activity %
+        participant.eligibilityScore?.toString() || '0',       // Trading activity %
         participant.isEligible ? 'TRUE' : 'FALSE',
         participant.isWinner ? 'TRUE' : 'FALSE',
         'FALSE', // is_blacklisted - blacklisted wallets are excluded from participants table

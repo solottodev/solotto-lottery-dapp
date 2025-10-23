@@ -211,11 +211,23 @@ export class TradingActivityService {
 
         if (meetsTradeThreshold) eligibleCount++;
 
-        // Update the participant with their trading activity score
+        // Get actual START balance from BalanceSnapshot table
+        const startSnapshot = await prisma.balanceSnapshot.findUnique({
+          where: {
+            roundId_wallet_snapshotType: {
+              roundId,
+              wallet: participant.wallet,
+              snapshotType: 'START'
+            }
+          }
+        });
+
+        // Update the participant with their trading activity score AND actual START balance
         await prisma.participant.update({
           where: { id: participant.id },
           data: {
             eligibilityScore: tradePercent,
+            tokenLottoBalanceStart: startSnapshot?.tokenBalance ?? participant.tokenLottoBalanceEnd,
             // Note: isEligible will be set in snapshot/confirm route
             // after checking BOTH trade% AND token balance requirements
           }
@@ -224,7 +236,8 @@ export class TradingActivityService {
         const status = meetsTradeThreshold ? '✅' : '❌';
         console.log(
           `   ${status} ${participant.wallet.slice(0, 8)}... - ` +
-          `Trade Activity: ${tradePercent.toFixed(2)}%`
+          `Trade Activity: ${tradePercent.toFixed(2)}% ` +
+          `(${startSnapshot?.tokenBalance?.toFixed(2) ?? 'N/A'} → ${participant.tokenLottoBalanceEnd?.toFixed(2) ?? 0})`
         );
       }
 

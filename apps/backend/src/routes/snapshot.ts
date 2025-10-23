@@ -232,8 +232,9 @@ router.get('/:snapshotId/participants', requireJwt, async (req, res) => {
     const participantList = participants.map(p => ({
       roundId: snap.roundId,
       wallet: p.wallet,
-      tokenLottoBalance: (p as any).tokenLottoBalanceEnd ?? 0,
-      tokenUsdBalance: (p as any).tokenUsdBalance ?? 0,
+      tokenLottoBalanceStart: p.tokenLottoBalanceStart ?? 0, // Balance at round START
+      tokenLottoBalanceEnd: p.tokenLottoBalanceEnd ?? 0,     // Balance at round END
+      tokenUsdBalance: p.tokenUsdBalance ?? 0,
       assignedTier: p.tier,
       tradingActivityPercent: p.eligibilityScore ?? 0, // Calculated from start/end balances
       isEligible: p.isEligible,
@@ -275,7 +276,7 @@ router.get('/:snapshotId/participants/export', requireJwt, async (req, res) => {
     // Get round info for drawing date
     const round = await prisma.round.findUnique({ where: { id: snap.roundId } })
 
-    // Build CSV
+    // Build CSV with all trading activity fields
     const headers = [
       'Round ID',
       'Wallet Address',
@@ -285,12 +286,14 @@ router.get('/:snapshotId/participants/export', requireJwt, async (req, res) => {
       'Snapshot ID',
       'Snapshot Started At',
       'Snapshot Completed At',
-      'Token LOTTO Balance',
+      'Token LOTTO Balance Start',
+      'Token LOTTO Balance End',
       'Token USD Balance',
       'Tier',
-      'Eligibility Score',
+      'Trading Activity %',
       'Is Eligible',
-      'Is Blacklisted'
+      'Is Blacklisted',
+      'Is Winner'
     ]
 
     const rows = participants.map(p => {
@@ -303,12 +306,14 @@ router.get('/:snapshotId/participants/export', requireJwt, async (req, res) => {
         snap.id,
         snap.startedAt?.toISOString() || '',
         snap.completedAt?.toISOString() || '',
-        (p as any).tokenLottoBalanceEnd ?? 0, // END balance determines tier
-        (p as any).tokenUsdBalance ?? 0,
+        p.tokenLottoBalanceStart ?? 0, // START balance (from round creation)
+        p.tokenLottoBalanceEnd ?? 0,   // END balance (determines tier)
+        p.tokenUsdBalance ?? 0,         // USD value at snapshot time
         p.tier ?? 0,
-        p.eligibilityScore ?? 0, // Trading activity %
+        p.eligibilityScore ?? 0,        // Trading activity percentage
         p.isEligible ? 'TRUE' : 'FALSE',
-        'FALSE' // Blacklisted wallets are excluded from participants table
+        'FALSE', // Blacklisted wallets are excluded from participants table
+        p.isWinner ? 'TRUE' : 'FALSE'
       ]
     })
 
