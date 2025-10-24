@@ -272,11 +272,13 @@ class TradingActivityService {
             // Find first round that has END balances and matching token mint
             for (const round of rounds) {
                 if (round.BalanceSnapshot.length > 0) {
-                    // Verify token mint matches (get from LotteryConfig)
+                    // Verify token mint matches (get from LotteryConfig by matching dates)
                     const config = await prisma_1.default.lotteryConfig.findFirst({
                         where: {
-                            snapshotStart: round.startDate,
-                            snapshotEnd: round.endDate
+                            AND: [
+                                { snapshotStart: { lte: round.startDate } },
+                                { snapshotEnd: { gte: round.startDate } }
+                            ]
                         }
                     });
                     if (config && config.tokenMint === tokenMint) {

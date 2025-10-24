@@ -134,13 +134,13 @@ enum SnapshotStatus {
 }
 
 model BalanceSnapshot {
-  id            String   @id @default(uuid())
-  roundId       String
-  wallet        String
-  tokenBalance  Float
-  snapshotType  String
-  capturedAt    DateTime @default(now())
-  round         Round    @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  id           String   @id @default(uuid())
+  roundId      String
+  wallet       String
+  tokenBalance Float
+  snapshotType String
+  capturedAt   DateTime @default(now())
+  round        Round    @relation(fields: [roundId], references: [id], onDelete: Cascade)
 
   @@unique([roundId, wallet, snapshotType])
   @@index([roundId, wallet, snapshotType])
