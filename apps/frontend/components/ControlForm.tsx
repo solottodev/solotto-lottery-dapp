@@ -10,7 +10,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { ConfigSchema, ConfigSchemaType } from '@/lib/zodSchemas'
 import { useModuleStore } from '@/hooks/useModuleStore'
 import { useAuthStore } from '@/hooks/useAuthStore'
-import { createConfig } from '@/lib/api'
+import { createConfig, fetchCurrentPrice } from '@/lib/api'
 import { useConnection, useWallet } from '@solana/wallet-adapter-react'
 import { LAMPORTS_PER_SOL } from '@solana/web3.js'
 
@@ -28,6 +28,10 @@ export const ControlForm = () => {
   const { controlEnabled, controlSubmitted, setControlSubmitted, setParticipantCounts, setControlConfig, setPrizePoolSol, setRoundId } = useModuleStore()
   const { connection } = useConnection()
   const { publicKey } = useWallet()
+
+  // 🆕 State for price fetching
+  const [isFetchingPrice, setIsFetchingPrice] = React.useState(false)
+  const [priceFetchError, setPriceFetchError] = React.useState<string | null>(null)
 
   // Compute default window: previous Sunday 6:01 PM to current (upcoming or same) Sunday 6:00 PM
   const toLocalInput = (d: Date) => {
@@ -52,6 +56,23 @@ export const ControlForm = () => {
 
   const defaults = computeDefaultWindow()
 
+  // 🆕 Handler for "Fetch Price" button
+  const handleFetchPrice = async () => {
+    setIsFetchingPrice(true)
+    setPriceFetchError(null)
+
+    try {
+      const price = await fetchCurrentPrice(jwt || '')
+      form.setValue('lottoUsdPrice', price)
+      console.log(`✅ Auto-filled LOTTO price: $${price}`)
+    } catch (error: any) {
+      console.error('Failed to fetch price:', error)
+      setPriceFetchError(error.message || 'Failed to fetch price')
+    } finally {
+      setIsFetchingPrice(false)
+    }
+  }
+
   const form = useForm<ConfigSchemaType>({
     resolver: zodResolver(ConfigSchema),
     defaultValues: {
@@ -61,6 +82,7 @@ export const ControlForm = () => {
       startDate: defaults.start,
       endDate: defaults.end,
       slippageTolerancePercent: 0.5,
+      lottoUsdPrice: undefined, // 🆕 Add lottoUsdPrice to defaults
     },
   })
 
@@ -213,6 +235,55 @@ export const ControlForm = () => {
             {form.formState.errors.prizeDistributionPercent && (
               <p className="mt-1 text-red-400 text-xs sm:text-sm">{form.formState.errors.prizeDistributionPercent.message}</p>
             )}
+          </div>
+        </div>
+
+        {/* 🆕 LOTTO Price (USD) */}
+        <div className="grid items-start sm:items-center gap-2 sm:grid-cols-[200px,1fr] lg:grid-cols-[260px,1fr]">
+          <Label htmlFor="lottoUsdPrice" className="text-slate-300 text-xs md:text-sm">
+            LOTTO Price (USD)
+          </Label>
+          <div>
+            <div className="flex gap-2">
+              <Input
+                id="lottoUsdPrice"
+                className="flex-1 rounded-lg border border-primary/20 bg-night-800 px-2.5 py-1.5 text-[10px] md:text-[12px] text-white placeholder:text-slate-500"
+                type="number"
+                step="0.00000001"
+                placeholder="0.00014104"
+                {...form.register('lottoUsdPrice', { valueAsNumber: true })}
+              />
+              <Button
+                type="button"
+                onClick={handleFetchPrice}
+                disabled={isFetchingPrice || !jwt}
+                className="whitespace-nowrap rounded-lg bg-primary/20 px-3 py-1.5 text-[10px] md:text-[12px] font-semibold text-white hover:bg-primary/30 disabled:opacity-50"
+              >
+                {isFetchingPrice ? 'Fetching...' : 'Fetch Price'}
+              </Button>
+            </div>
+            {form.formState.errors.lottoUsdPrice && (
+              <p className="mt-1 text-red-400 text-xs sm:text-sm">
+                {form.formState.errors.lottoUsdPrice.message}
+              </p>
+            )}
+            {priceFetchError && (
+              <p className="mt-1 text-red-400 text-xs sm:text-sm">
+                {priceFetchError}
+              </p>
+            )}
+            <p className="mt-1 text-slate-400 text-[10px]">
+              Click &quot;Fetch Price&quot; to auto-fill from CoinGecko, or enter manually from{' '}
+              <a
+                href={`https://solscan.io/token/${process.env.NEXT_PUBLIC_LOTTO_MINT || 'HJSnJaQv3u4ZyvPXiQPTyBsYJpggWsZvVH8yedjBpump'}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary hover:underline"
+              >
+                Solscan
+              </a>
+              .
+            </p>
           </div>
         </div>
 

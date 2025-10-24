@@ -138,7 +138,7 @@ export class SnapshotService {
    * Tier 3: Next 30% (20-50%)
    * Tier 4: Bottom 50% (50-100%)
    */
-  private assignTiers(holders: TokenHolder[]): SnapshotParticipant[] {
+  private assignTiers(holders: TokenHolder[], lottoUsdPrice: number | null): SnapshotParticipant[] {
     // Sort by balance descending (highest first)
     const sorted = [...holders].sort((a, b) => {
       if (a.balanceUi > b.balanceUi) return -1;
@@ -174,14 +174,18 @@ export class SnapshotService {
       // - tokenLottoBalanceStart: Inherited from previous round's END (set at round creation)
       //   OR captured fresh for first round (in BalanceSnapshot table)
       // - tokenLottoBalanceEnd: Current balance at snapshot time
-      // - tokenUsdBalance: TODO - Should be calculated with real token price from oracle
+      // - tokenUsdBalance: Calculated with real LOTTO price from config
       //
       // NOTE: We DO NOT set tokenLottoBalanceStart here - it was already set at round creation
       // (either inherited from previous round or captured fresh) and will be populated by
       // the trading activity service during snapshot confirmation
       const tokenLottoBalanceStart = holder.balanceUi; // Placeholder - will be overwritten in confirm
       const tokenLottoBalanceEnd = holder.balanceUi;   // Current balance at snapshot time
-      const tokenUsdBalance = holder.balanceUi;        // TODO: Calculate with real price
+
+      // 🆕 Calculate USD value using stored price (or fallback to token balance)
+      const tokenUsdBalance = lottoUsdPrice
+        ? tokenLottoBalanceEnd * lottoUsdPrice  // Real USD calculation
+        : tokenLottoBalanceEnd; // Fallback if no price (should not happen)
 
       return {
         wallet: holder.owner,
@@ -255,8 +259,31 @@ export class SnapshotService {
       throw new Error('No token holders found for this mint address');
     }
 
-    // 2. Assign tiers based on balance
-    let participants = this.assignTiers(holders);
+    // 1.5. Fetch LOTTO price from config for USD calculations
+    const round = await prisma.round.findUnique({ where: { id: roundId } });
+    if (!round) throw new Error('Round not found');
+
+    const config = await prisma.lotteryConfig.findFirst({
+      where: {
+        snapshotStart: round.startDate,
+        snapshotEnd: round.endDate,
+        tokenMint: mintAddress, // Ensure we get the config for this token
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const lottoUsdPrice = config?.lottoUsdPrice ?? null;
+
+    if (!lottoUsdPrice) {
+      console.warn('⚠️  WARNING: No LOTTO price configured!');
+      console.warn('   USD values will be inaccurate (using token balance as fallback)');
+      console.warn('   Please configure LOTTO price in Control Form for accurate results');
+    } else {
+      console.log(`💵 Using LOTTO price: $${lottoUsdPrice.toFixed(8)} USD`);
+    }
+
+    // 2. Assign tiers based on balance (with USD calculation)
+    let participants = this.assignTiers(holders, lottoUsdPrice);
 
     // 3. Apply blacklists (combine hard blacklist + config blacklist)
     const hardBlacklist = this.getHardBlacklist();

@@ -34,6 +34,7 @@ model LotteryConfig {
   prizeDistributionPercent Float        @default(70.0)
   slippageTolerancePercent Float        @default(0.5)
   blacklist                Json         @default("[]")
+  lottoUsdPrice            Float?       // LOTTO token price in USD at round creation time
   createdById              String
   createdAt                DateTime     @default(now())
   updatedAt                DateTime     @updatedAt
@@ -79,10 +80,10 @@ model Round {
   swapSlippage             Float?
   createdAt                DateTime          @default(now())
   network                  String            @default("devnet")
+  BalanceSnapshot          BalanceSnapshot[]
   Drawing                  Drawing[]
   Participant              Participant[]
   Snapshot                 Snapshot[]
-  BalanceSnapshot          BalanceSnapshot[]
 
   @@index([drawingDate])
   @@index([network])
@@ -109,6 +110,20 @@ model User {
   LotteryConfig LotteryConfig[]
 }
 
+model BalanceSnapshot {
+  id           String   @id @default(uuid())
+  roundId      String
+  wallet       String
+  tokenBalance Float
+  snapshotType String
+  capturedAt   DateTime @default(now())
+  round        Round    @relation(fields: [roundId], references: [id], onDelete: Cascade)
+
+  @@unique([roundId, wallet, snapshotType])
+  @@index([roundId, wallet, snapshotType])
+  @@index([capturedAt])
+}
+
 enum ConfigStatus {
   PENDING
   VALIDATED
@@ -131,18 +146,4 @@ enum SnapshotStatus {
   RUNNING
   COMPLETED
   CONFIRMED
-}
-
-model BalanceSnapshot {
-  id           String   @id @default(uuid())
-  roundId      String
-  wallet       String
-  tokenBalance Float
-  snapshotType String
-  capturedAt   DateTime @default(now())
-  round        Round    @relation(fields: [roundId], references: [id], onDelete: Cascade)
-
-  @@unique([roundId, wallet, snapshotType])
-  @@index([roundId, wallet, snapshotType])
-  @@index([capturedAt])
 }

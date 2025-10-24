@@ -35,6 +35,7 @@ export const createConfig = async (
       .filter((s) => s.length > 0),
     prizeSourceWallet: data.prizeSourceWallet,
     prizeSourceBalanceSol: data.prizeSourceBalanceSol,
+    lottoUsdPrice: data.lottoUsdPrice, // 🆕 Include LOTTO price for USD calculations
   }
 
   console.log('[API] Sending config to /api/control:', JSON.stringify(payload, null, 2))
@@ -57,6 +58,35 @@ export const createConfig = async (
   const result = await response.json()
   console.log('[API] Config submission successful:', result)
   return result
+}
+
+/**
+ * Fetch current LOTTO price from CoinGecko
+ * Used by "Fetch Price" button in ControlForm
+ */
+export const fetchCurrentPrice = async (token: string): Promise<number> => {
+  if (!token) throw new Error('Missing auth token')
+
+  const response = await fetch('/api/price/current', {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new Error(`Failed to fetch price: ${errorText}`)
+  }
+
+  const data = await response.json()
+
+  if (!data.success || typeof data.price !== 'number') {
+    throw new Error('Invalid price response from server')
+  }
+
+  return data.price
 }
 
 // --- Snapshot API (mocked for now) ---

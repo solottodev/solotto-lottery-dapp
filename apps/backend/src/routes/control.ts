@@ -62,7 +62,15 @@ router.post('/', requireJwt, async (req, res) => {
       blacklist,
       prizeSourceWallet,
       prizeSourceBalanceSol,
+      lottoUsdPrice, // 🆕 LOTTO price in USD
     } = parsed.data;
+
+    // 💵 Log LOTTO price if provided
+    if (lottoUsdPrice) {
+      console.log(`💵 LOTTO Price provided: $${lottoUsdPrice} USD`);
+    } else {
+      console.warn('⚠️  No LOTTO price provided - USD values will be inaccurate');
+    }
 
     // ✅ NEW: Validate prize source wallet balance on-chain
     try {
@@ -146,6 +154,7 @@ router.post('/', requireJwt, async (req, res) => {
         prizeDistributionPercent,
         slippageTolerancePercent,
         blacklist: combined,
+        lottoUsdPrice, // 🆕 Store LOTTO price for USD calculations
         status: ConfigStatus.PENDING,
         createdById: userId,
       },

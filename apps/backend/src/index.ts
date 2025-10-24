@@ -13,6 +13,7 @@ import historyRoutes from './routes/history';
 import snapshotRoutes from './routes/snapshot';
 import drawingRoutes from './routes/drawing';
 import transparencyRoutes from './routes/transparency';
+import priceRoutes from './routes/price';
 
 dotenv.config();
 
@@ -49,6 +50,7 @@ app.use('/api/v1/history', historyRoutes);
 app.use('/api/v1/snapshot', snapshotRoutes);
 app.use('/api/v1/drawing', drawingRoutes);
 app.use('/api/v1/transparency', transparencyRoutes);
+app.use('/api/v1/price', priceRoutes);
 
 // Keep auth endpoints unversioned for now (can add /api/v1 later)
 app.use("/auth", authRouter);

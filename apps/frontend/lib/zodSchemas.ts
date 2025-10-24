@@ -43,6 +43,12 @@ export const ConfigSchema = z.object({
           'Blacklist contains invalid addresses. Use comma-separated Solana addresses (base58, 32–44 chars).',
       }
     ),
+  // 🆕 LOTTO token price in USD at round creation time
+  lottoUsdPrice: z
+    .number({ invalid_type_error: 'Enter a number' })
+    .positive('LOTTO price must be positive')
+    .max(1000, 'LOTTO price seems unrealistic (>$1000)')
+    .optional(), // Optional to not break existing form submissions
 })
 
 export type ConfigSchemaType = z.infer<typeof ConfigSchema>

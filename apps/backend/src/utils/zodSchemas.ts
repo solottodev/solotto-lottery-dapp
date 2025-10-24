@@ -15,4 +15,11 @@ export const lotteryConfigSchema = z.object({
   blacklist: z.array(z.string().min(1)).optional().default([]),
   prizeSourceWallet: z.string().min(1, 'Source wallet is required'),
   prizeSourceBalanceSol: z.number().min(0, 'Source balance must be non-negative'),
+
+  // LOTTO token price in USD at round creation time
+  lottoUsdPrice: z
+    .number()
+    .positive('LOTTO price must be positive')
+    .max(1000, 'LOTTO price seems unrealistic (>$1000)')
+    .optional(), // Optional to allow operator to skip (not recommended)
 });
