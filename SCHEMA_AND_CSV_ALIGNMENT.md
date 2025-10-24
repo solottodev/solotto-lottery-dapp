@@ -246,39 +246,52 @@ isEligible = meetsUsdThreshold && meetsTradeThreshold
 
 **File:** `apps/backend/src/services/snapshot.service.ts`
 
-**Current Implementation:**
+**Current Implementation (Cross-Round Tracking):**
 ```typescript
-// ✅ MAINNET IMPLEMENTATION:
-// - tokenLottoBalanceStart: Captured when round is created (in BalanceSnapshot table)
+// ✅ CROSS-ROUND BALANCE TRACKING:
+// - tokenLottoBalanceStart: Inherited from previous round's END (set at round creation)
+//   OR captured fresh for first round (in BalanceSnapshot table)
 // - tokenLottoBalanceEnd: Current balance at snapshot time
 // - tokenUsdBalance: TODO - Should be calculated with real token price from oracle
 //
-// NOTE: We DO NOT set tokenLottoBalanceStart here - it was already captured at round creation
-// and will be populated by the trading activity service during snapshot confirmation
-tokenLottoBalanceStart = holder.balanceUi  // Will be overwritten by trading service in confirm
+// NOTE: We DO NOT set tokenLottoBalanceStart here - it was already set at round creation
+// (either inherited from previous round or captured fresh) and will be populated by
+// the trading activity service during snapshot confirmation
+tokenLottoBalanceStart = holder.balanceUi  // Placeholder - will be overwritten in confirm
 tokenLottoBalanceEnd = holder.balanceUi    // Current balance at snapshot time
 tokenUsdBalance = holder.balanceUi         // TODO: Calculate with real price
 ```
 
-### Trading Activity Service (NEW - October 23, 2025)
+### Trading Activity Service (UPDATED - October 23, 2025)
 
 **File:** `apps/backend/src/services/trading-activity.service.ts`
 
 **Key Methods:**
-- `captureStartBalances()` - Called during round creation via Control module
+- `findPreviousRound()` - NEW: Locates previous round for balance inheritance
+- `inheritPreviousEndBalances()` - NEW: Copies previous END as current START (cross-round tracking)
+- `captureStartBalances()` - Fallback: Captures fresh START for first round
 - `captureEndBalances()` - Called during snapshot confirmation
 - `calculateTradeActivity()` - Computes buy/sell % from BalanceSnapshot data
 - `updateParticipantEligibility()` - Updates eligibilityScore and tokenLottoBalanceStart
 
-**Production Implementation:**
+**Production Implementation (Cross-Round Tracking):**
 ```typescript
-// 1. START balances captured at round creation
-await tradingService.captureStartBalances(roundId, tokenMint)
+// 1. START balances - CROSS-ROUND INHERITANCE (Round creation)
+const previousRoundId = await tradingService.findPreviousRound(round.createdAt, tokenMint)
+
+if (previousRoundId) {
+  // Inherit previous round's END as current round's START
+  await tradingService.inheritPreviousEndBalances(currentRoundId, previousRoundId)
+} else {
+  // First round - capture fresh START balances
+  await tradingService.captureStartBalances(roundId, tokenMint)
+}
 
 // 2. END balances captured at snapshot confirmation
 await tradingService.captureEndBalances(roundId, tokenMint)
 
 // 3. Trading activity calculated from BalanceSnapshot table
+// Compares inherited/captured START against current END
 const tradePercent = await tradingService.calculateTradeActivity(roundId, wallet)
 
 // 4. Participant record updated with actual START balance
@@ -286,10 +299,18 @@ await prisma.participant.update({
   where: { id },
   data: {
     eligibilityScore: tradePercent,
-    tokenLottoBalanceStart: actualStartBalance
+    tokenLottoBalanceStart: actualStartBalance  // From inherited or captured START
   }
 })
 ```
+
+**Cross-Round Tracking Benefits:**
+- ✅ Accurate week-over-week trading activity measurement
+- ✅ 50% reduction in RPC calls (no START capture for subsequent rounds)
+- ✅ New wallets automatically show 100% trading activity
+- ✅ Wallets selling all show 100% sell activity
+
+**See:** [CROSS_ROUND_BALANCE_TRACKING.md](CROSS_ROUND_BALANCE_TRACKING.md) for complete details
 
 ### Drawing Service
 

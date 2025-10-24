@@ -284,6 +284,160 @@ export class TradingActivityService {
       participantsWithActivity: participants
     };
   }
+
+  /**
+   * Find the most recent completed round to inherit balances from
+   *
+   * This method searches for the most recent round that:
+   * 1. Was created before the current round
+   * 2. Has END balances captured (snapshot confirmed)
+   * 3. Uses the same token mint as the current round
+   *
+   * @param currentRoundCreatedAt - Creation timestamp of current round
+   * @param tokenMint - Token mint address to match
+   * @returns Previous round ID or null if none found
+   */
+  async findPreviousRound(
+    currentRoundCreatedAt: Date,
+    tokenMint: string
+  ): Promise<string | null> {
+    try {
+      console.log(`🔍 Searching for previous round to inherit balances from...`);
+      console.log(`   Token mint: ${tokenMint}`);
+      console.log(`   Before: ${currentRoundCreatedAt.toISOString()}`);
+
+      // Find most recent rounds created before current round
+      const rounds = await prisma.round.findMany({
+        where: {
+          createdAt: { lt: currentRoundCreatedAt }
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 10, // Check last 10 rounds max
+        include: {
+          Snapshot: {
+            where: { status: 'CONFIRMED' },
+            take: 1
+          },
+          BalanceSnapshot: {
+            where: { snapshotType: 'END' },
+            take: 1 // Just check if any END balances exist
+          }
+        }
+      });
+
+      console.log(`   Found ${rounds.length} rounds to check`);
+
+      // Find first round that has END balances and matching token mint
+      for (const round of rounds) {
+        if (round.BalanceSnapshot.length > 0) {
+          // Verify token mint matches (get from LotteryConfig)
+          const config = await prisma.lotteryConfig.findFirst({
+            where: {
+              snapshotStart: round.startDate,
+              snapshotEnd: round.endDate
+            }
+          });
+
+          if (config && config.tokenMint === tokenMint) {
+            console.log(`   ✅ Found previous round: ${round.id.slice(0, 8)}...`);
+            console.log(`      Created: ${round.createdAt.toISOString()}`);
+            console.log(`      Period: ${round.startDate.toISOString().split('T')[0]} → ${round.endDate.toISOString().split('T')[0]}`);
+
+            // Count how many END balances exist
+            const endCount = await prisma.balanceSnapshot.count({
+              where: { roundId: round.id, snapshotType: 'END' }
+            });
+            console.log(`      END balances: ${endCount}`);
+
+            return round.id;
+          } else {
+            console.log(`   ⏭️  Skipping round ${round.id.slice(0, 8)}... (different token mint or no config)`);
+          }
+        } else {
+          console.log(`   ⏭️  Skipping round ${round.id.slice(0, 8)}... (no END balances)`);
+        }
+      }
+
+      console.log('   ℹ️  No previous round found with END balances');
+      return null;
+
+    } catch (error) {
+      console.error('❌ Error finding previous round:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Inherit END balances from previous round as START balances for current round
+   *
+   * This enables accurate week-over-week trading activity tracking by using
+   * the previous round's END balances as the baseline (START) for the current round.
+   *
+   * New wallets that appear in the current round but didn't exist in the previous
+   * round will have no START balance record, resulting in 100% trading activity.
+   *
+   * @param currentRoundId - ID of the current round
+   * @param previousRoundId - ID of the previous round to inherit from
+   * @returns Object with inherited count and skipped count
+   */
+  async inheritPreviousEndBalances(
+    currentRoundId: string,
+    previousRoundId: string
+  ): Promise<{ inherited: number; skipped: number }> {
+    console.log(`📋 Inheriting END balances from previous round...`);
+    console.log(`   Previous round: ${previousRoundId.slice(0, 8)}...`);
+    console.log(`   Current round: ${currentRoundId.slice(0, 8)}...`);
+
+    try {
+      // Get all END balances from previous round
+      const previousEndSnapshots = await prisma.balanceSnapshot.findMany({
+        where: {
+          roundId: previousRoundId,
+          snapshotType: 'END'
+        }
+      });
+
+      if (previousEndSnapshots.length === 0) {
+        throw new Error(`No END balances found in previous round ${previousRoundId}`);
+      }
+
+      console.log(`   Found ${previousEndSnapshots.length} END balances to inherit`);
+
+      // Batch insert as START balances for current round
+      const batchSize = 100;
+      let inherited = 0;
+
+      for (let i = 0; i < previousEndSnapshots.length; i += batchSize) {
+        const batch = previousEndSnapshots.slice(i, i + batchSize);
+
+        await prisma.balanceSnapshot.createMany({
+          data: batch.map(snap => ({
+            roundId: currentRoundId,
+            wallet: snap.wallet,
+            tokenBalance: snap.tokenBalance,
+            snapshotType: 'START',
+          })),
+          skipDuplicates: true, // Prevent errors if START already exists
+        });
+
+        inherited += batch.length;
+        console.log(`   Inherited ${inherited}/${previousEndSnapshots.length} START balances...`);
+      }
+
+      const skipped = previousEndSnapshots.length - inherited;
+
+      console.log(`✅ Successfully inherited ${inherited} START balances from previous round`);
+      if (skipped > 0) {
+        console.log(`   ℹ️  Skipped ${skipped} duplicates`);
+      }
+
+      return { inherited, skipped };
+
+    } catch (error) {
+      console.error('❌ Failed to inherit previous END balances:', error);
+      throw new Error(`Failed to inherit balances: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
 }
 
 // Singleton instance

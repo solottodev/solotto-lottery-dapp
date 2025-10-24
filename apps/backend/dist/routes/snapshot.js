@@ -7,6 +7,7 @@ const express_1 = __importDefault(require("express"));
 const requireJwt_1 = require("../middleware/requireJwt");
 const prisma_1 = __importDefault(require("../prisma"));
 const snapshot_service_1 = require("../services/snapshot.service");
+const trading_activity_service_1 = require("../services/trading-activity.service");
 const router = express_1.default.Router();
 // POST /snapshot/run { roundId }
 router.post('/run', requireJwt_1.requireJwt, async (req, res) => {
@@ -98,54 +99,48 @@ router.post('/confirm', requireJwt_1.requireJwt, async (req, res) => {
             },
             orderBy: { createdAt: 'desc' },
         });
-        const minUsdLotto = config?.minUsdLottoRequired ?? 50.0;
-        const minTradePercent = config?.tradePercentage ?? 0;
-        console.log(`Eligibility requirements: minUsdLotto=${minUsdLotto}, minTradePercent=${minTradePercent}`);
-        // Get all participants and calculate eligibility
-        const allParticipants = await prisma_1.default.participant.findMany({ where: { roundId: snap.roundId } });
-        // Calculate eligibility for each participant
-        // Two-part eligibility check:
-        // 1. USD Balance: tokenUsdBalance >= minUsdLotto (e.g., $50)
-        // 2. Trading Activity: Balance change >= minTradePercent (e.g., 50%)
+        if (!config) {
+            return res.status(404).json({ error: 'Lottery config not found for this round' });
+        }
+        const minUsdLotto = config.minUsdLottoRequired ?? 50.0;
+        const minTradePercent = config.tradePercentage ?? 50;
+        console.log(`\n📋 Eligibility Requirements:`);
+        console.log(`   - Minimum USD Balance: $${minUsdLotto}`);
+        console.log(`   - Minimum Trade Activity: ${minTradePercent}%\n`);
+        // ✅ MAINNET FEATURE: Capture END balances and calculate trading activity
+        const tradingService = (0, trading_activity_service_1.getTradingActivityService)();
+        try {
+            console.log('📸 Capturing END balances...');
+            await tradingService.captureEndBalances(snap.roundId, config.tokenMint);
+            console.log('📊 Calculating trading activity for all participants...');
+            await tradingService.updateParticipantEligibility(snap.roundId, minTradePercent);
+        }
+        catch (activityError) {
+            console.error('❌ Failed to calculate trading activity:', activityError);
+            return res.status(500).json({
+                error: 'Failed to calculate trading activity',
+                details: activityError instanceof Error ? activityError.message : String(activityError)
+            });
+        }
+        // Get all participants with updated eligibility scores
+        const allParticipants = await prisma_1.default.participant.findMany({
+            where: { roundId: snap.roundId }
+        });
+        // Apply final eligibility rules: BOTH token balance AND trade activity must meet thresholds
+        console.log('\n🔍 Final Eligibility Check (USD Balance + Trade Activity):\n');
         for (const p of allParticipants) {
-            const usdBalance = p.tokenUsdBalance ?? p.tokenLottoBalanceEnd ?? 0;
-            const startBalance = p.tokenLottoBalanceStart ?? 0;
-            const endBalance = p.tokenLottoBalanceEnd ?? 0;
-            // Calculate trading activity percentage
-            // tradePercent = |((end - start) / start)| × 100
-            let tradePercent = 0;
-            if (startBalance > 0) {
-                tradePercent = Math.abs((endBalance - startBalance) / startBalance) * 100;
-            }
-            else if (endBalance > 0) {
-                // If start balance is 0 but end balance exists, treat as 100% increase
-                tradePercent = 100;
-            }
-            // ⚠️ DEVNET TESTING NOTE ⚠️
-            // Currently, startBalance === endBalance (we don't fetch historical data yet)
-            // So tradePercent will be 0 for most wallets unless we implement:
-            // 1. Historical balance fetching at round START date
-            // 2. Current balance fetching at round END date
-            //
-            // For devnet testing, if eligibilityScore is null and balance exists, assume 100%
-            if (p.eligibilityScore === null && endBalance > 0) {
-                tradePercent = 100; // DEVNET ONLY: Assume trading activity
-                console.log(`  🧪 DEVNET: ${p.wallet.slice(0, 8)}... assumed 100% trade activity`);
-            }
-            else {
-                console.log(`  📊 ${p.wallet.slice(0, 8)}... calculated ${tradePercent.toFixed(2)}% trade activity (${startBalance} → ${endBalance})`);
-            }
-            // Check both eligibility criteria
+            const usdBalance = p.tokenUsdBalance ?? 0;
+            const tradePercent = p.eligibilityScore ?? 0;
+            // ✅ BOTH conditions must be met for eligibility
             const meetsUsdThreshold = usdBalance >= minUsdLotto;
             const meetsTradeThreshold = tradePercent >= minTradePercent;
             const isEligible = meetsUsdThreshold && meetsTradeThreshold;
-            console.log(`  ${isEligible ? '✅' : '❌'} ${p.wallet.slice(0, 8)}... - USD: $${usdBalance.toFixed(2)} ${meetsUsdThreshold ? '✓' : '✗'}, Trade: ${tradePercent.toFixed(1)}% ${meetsTradeThreshold ? '✓' : '✗'}`);
+            console.log(`   ${isEligible ? '✅' : '❌'} ${p.wallet.slice(0, 8)}... - ` +
+                `Balance: $${usdBalance.toFixed(2)} ${meetsUsdThreshold ? '✓' : '✗'}, ` +
+                `Trade: ${tradePercent.toFixed(1)}% ${meetsTradeThreshold ? '✓' : '✗'}`);
             await prisma_1.default.participant.update({
                 where: { id: p.id },
-                data: {
-                    isEligible,
-                    eligibilityScore: tradePercent, // Store calculated trading % for audit
-                },
+                data: { isEligible }
             });
         }
         // Count total and eligible participants
@@ -208,7 +203,8 @@ router.get('/:snapshotId/participants', requireJwt_1.requireJwt, async (req, res
         const participantList = participants.map(p => ({
             roundId: snap.roundId,
             wallet: p.wallet,
-            tokenLottoBalance: p.tokenLottoBalanceEnd ?? 0,
+            tokenLottoBalanceStart: p.tokenLottoBalanceStart ?? 0, // Balance at round START
+            tokenLottoBalanceEnd: p.tokenLottoBalanceEnd ?? 0, // Balance at round END
             tokenUsdBalance: p.tokenUsdBalance ?? 0,
             assignedTier: p.tier,
             tradingActivityPercent: p.eligibilityScore ?? 0, // Calculated from start/end balances
@@ -248,7 +244,7 @@ router.get('/:snapshotId/participants/export', requireJwt_1.requireJwt, async (r
         });
         // Get round info for drawing date
         const round = await prisma_1.default.round.findUnique({ where: { id: snap.roundId } });
-        // Build CSV
+        // Build CSV with all trading activity fields
         const headers = [
             'Round ID',
             'Wallet Address',
@@ -258,12 +254,14 @@ router.get('/:snapshotId/participants/export', requireJwt_1.requireJwt, async (r
             'Snapshot ID',
             'Snapshot Started At',
             'Snapshot Completed At',
-            'Token LOTTO Balance',
+            'Token LOTTO Balance Start',
+            'Token LOTTO Balance End',
             'Token USD Balance',
             'Tier',
-            'Eligibility Score',
+            'Trading Activity %',
             'Is Eligible',
-            'Is Blacklisted'
+            'Is Blacklisted',
+            'Is Winner'
         ];
         const rows = participants.map(p => {
             return [
@@ -275,12 +273,14 @@ router.get('/:snapshotId/participants/export', requireJwt_1.requireJwt, async (r
                 snap.id,
                 snap.startedAt?.toISOString() || '',
                 snap.completedAt?.toISOString() || '',
-                p.tokenLottoBalanceEnd ?? 0, // END balance determines tier
-                p.tokenUsdBalance ?? 0,
+                p.tokenLottoBalanceStart ?? 0, // START balance (from round creation)
+                p.tokenLottoBalanceEnd ?? 0, // END balance (determines tier)
+                p.tokenUsdBalance ?? 0, // USD value at snapshot time
                 p.tier ?? 0,
-                p.eligibilityScore ?? 0, // Trading activity %
+                p.eligibilityScore ?? 0, // Trading activity percentage
                 p.isEligible ? 'TRUE' : 'FALSE',
-                'FALSE' // Blacklisted wallets are excluded from participants table
+                'FALSE', // Blacklisted wallets are excluded from participants table
+                p.isWinner ? 'TRUE' : 'FALSE'
             ];
         });
         // Convert to CSV format

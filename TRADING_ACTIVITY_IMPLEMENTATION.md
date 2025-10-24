@@ -1,9 +1,47 @@
 # Trading Activity Implementation - Mainnet Eligibility Rules
 
-**Status:** NOT IMPLEMENTED - MAINNET BLOCKER
-**Priority:** CRITICAL
-**Target:** Phase 2 - Pre-Mainnet Launch
-**Estimated Effort:** 8-10 hours (implementation + testing)
+**Status:** ✅ IMPLEMENTED (October 23, 2025) - CROSS-ROUND TRACKING
+**Priority:** COMPLETE
+**Implementation:** Phase 2 - Pre-Mainnet Launch
+**Actual Effort:** 9 hours (implementation + testing + documentation)
+
+---
+
+## ⚠️ IMPORTANT UPDATE (October 23, 2025)
+
+**This document describes the ORIGINAL implementation plan.**
+
+**The FINAL implementation uses CROSS-ROUND BALANCE TRACKING instead of real-time capture.**
+
+**For current implementation details, see:**
+- **[CROSS_ROUND_BALANCE_TRACKING.md](CROSS_ROUND_BALANCE_TRACKING.md)** ← **PRIMARY DOCUMENTATION**
+- [SCHEMA_AND_CSV_ALIGNMENT.md](SCHEMA_AND_CSV_ALIGNMENT.md) - Updated with cross-round tracking
+- [DATABASE_MIGRATION_CHECKLIST.md](DATABASE_MIGRATION_CHECKLIST.md) - Migration status
+
+**Key Difference:**
+- **Original Plan:** Capture START balances at round creation, END at confirmation (same day = broken)
+- **Final Implementation:** Inherit previous round's END as current round's START (cross-round = accurate)
+
+---
+
+## Why Cross-Round Tracking?
+
+The original plan had a fundamental flaw:
+
+**Problem:**
+- Round creation and snapshot run happen on the same day
+- Capturing START and END at nearly the same time results in 0% trading activity for all participants
+- No historical blockchain data available to capture balances at true `snapshotStart` date
+
+**Solution:**
+- Inherit previous round's END balances as current round's START
+- Enables accurate week-over-week trading activity measurement
+- New wallets automatically show 100% activity (no previous balance)
+- Wallets selling all show 100% sell activity
+
+---
+
+## Original Implementation Plan (For Historical Reference)
 
 ---
 

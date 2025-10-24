@@ -175,17 +175,36 @@ router.post('/', requireJwt, async (req, res) => {
       },
     })
 
-    // ✅ MAINNET FEATURE: Capture START balances for trading activity calculation
-    // This creates the baseline snapshot to compare against END balances later
+    // ✅ CROSS-ROUND BALANCE TRACKING: Inherit previous round's END as START
+    // This enables accurate week-over-week trading activity measurement
     try {
-      console.log(`\n📸 Capturing START balances for round ${round.id}...`);
+      console.log(`\n📋 Setting up START balances for round ${round.id}...`);
       const tradingService = getTradingActivityService();
-      await tradingService.captureStartBalances(round.id, tokenMint);
-      console.log(`✅ START balances captured successfully\n`);
+
+      // Find previous round with END balances
+      const previousRoundId = await tradingService.findPreviousRound(
+        round.createdAt,
+        tokenMint
+      );
+
+      if (previousRoundId) {
+        // Inherit previous round's END balances as START
+        console.log(`   Using cross-round inheritance from previous round`);
+        const result = await tradingService.inheritPreviousEndBalances(
+          round.id,
+          previousRoundId
+        );
+        console.log(`✅ Inherited ${result.inherited} START balances from previous round\n`);
+      } else {
+        // First round or no previous data - capture fresh START balances
+        console.log(`   No previous round found - capturing fresh START balances`);
+        await tradingService.captureStartBalances(round.id, tokenMint);
+        console.log(`✅ START balances captured successfully\n`);
+      }
     } catch (balanceError) {
       // Log warning but don't fail the request - this is a non-critical error
       // The round can still be created, but trading activity won't be calculated
-      console.warn('⚠️  Failed to capture START balances (non-critical):', balanceError);
+      console.warn('⚠️  Failed to set up START balances (non-critical):', balanceError);
       console.warn('   Trading activity calculation may not work for this round');
     }
 

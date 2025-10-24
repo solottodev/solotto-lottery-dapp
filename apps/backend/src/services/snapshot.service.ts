@@ -170,14 +170,16 @@ export class SnapshotService {
         tier = 4;
       }
 
-      // ✅ MAINNET IMPLEMENTATION:
-      // - tokenLottoBalanceStart: Captured when round is created (in BalanceSnapshot table)
+      // ✅ CROSS-ROUND BALANCE TRACKING:
+      // - tokenLottoBalanceStart: Inherited from previous round's END (set at round creation)
+      //   OR captured fresh for first round (in BalanceSnapshot table)
       // - tokenLottoBalanceEnd: Current balance at snapshot time
       // - tokenUsdBalance: TODO - Should be calculated with real token price from oracle
       //
-      // NOTE: We DO NOT set tokenLottoBalanceStart here - it was already captured at round creation
-      // and will be populated by the trading activity service during snapshot confirmation
-      const tokenLottoBalanceStart = holder.balanceUi; // Will be overwritten by trading service in confirm
+      // NOTE: We DO NOT set tokenLottoBalanceStart here - it was already set at round creation
+      // (either inherited from previous round or captured fresh) and will be populated by
+      // the trading activity service during snapshot confirmation
+      const tokenLottoBalanceStart = holder.balanceUi; // Placeholder - will be overwritten in confirm
       const tokenLottoBalanceEnd = holder.balanceUi;   // Current balance at snapshot time
       const tokenUsdBalance = holder.balanceUi;        // TODO: Calculate with real price
 

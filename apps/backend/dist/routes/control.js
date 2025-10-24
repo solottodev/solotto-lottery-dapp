@@ -11,6 +11,7 @@ const zodSchemas_1 = require("../utils/zodSchemas");
 const client_1 = require("@prisma/client");
 const web3_js_1 = require("@solana/web3.js");
 const rpc_service_1 = require("../services/rpc.service");
+const trading_activity_service_1 = require("../services/trading-activity.service");
 const router = express_1.default.Router();
 // Basic base58 and length check for Solana addresses
 const base58Regex = /^[1-9A-HJ-NP-Za-km-z]+$/;
@@ -145,6 +146,32 @@ router.post('/', requireJwt_1.requireJwt, async (req, res) => {
                 tierPayouts: {},
             },
         });
+        // ✅ CROSS-ROUND BALANCE TRACKING: Inherit previous round's END as START
+        // This enables accurate week-over-week trading activity measurement
+        try {
+            console.log(`\n📋 Setting up START balances for round ${round.id}...`);
+            const tradingService = (0, trading_activity_service_1.getTradingActivityService)();
+            // Find previous round with END balances
+            const previousRoundId = await tradingService.findPreviousRound(round.createdAt, tokenMint);
+            if (previousRoundId) {
+                // Inherit previous round's END balances as START
+                console.log(`   Using cross-round inheritance from previous round`);
+                const result = await tradingService.inheritPreviousEndBalances(round.id, previousRoundId);
+                console.log(`✅ Inherited ${result.inherited} START balances from previous round\n`);
+            }
+            else {
+                // First round or no previous data - capture fresh START balances
+                console.log(`   No previous round found - capturing fresh START balances`);
+                await tradingService.captureStartBalances(round.id, tokenMint);
+                console.log(`✅ START balances captured successfully\n`);
+            }
+        }
+        catch (balanceError) {
+            // Log warning but don't fail the request - this is a non-critical error
+            // The round can still be created, but trading activity won't be calculated
+            console.warn('⚠️  Failed to set up START balances (non-critical):', balanceError);
+            console.warn('   Trading activity calculation may not work for this round');
+        }
         return res.status(201).json({ message: 'Config saved', config, effectiveBlacklist: combined, roundId: round.id, prizePoolSol });
     }
     catch (err) {
