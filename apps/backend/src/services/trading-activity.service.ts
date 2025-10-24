@@ -330,20 +330,22 @@ export class TradingActivityService {
       // Find first round that has END balances and matching token mint
       for (const round of rounds) {
         if (round.BalanceSnapshot.length > 0) {
-          // Verify token mint matches (get from LotteryConfig by matching dates)
+          // Verify token mint matches (get from LotteryConfig by matching dates AND token mint)
           const config = await prisma.lotteryConfig.findFirst({
             where: {
               AND: [
                 { snapshotStart: { lte: round.startDate } },
-                { snapshotEnd: { gte: round.startDate } }
+                { snapshotEnd: { gte: round.startDate } },
+                { tokenMint: tokenMint } // Add token mint filter to query!
               ]
             }
           });
 
-          if (config && config.tokenMint === tokenMint) {
+          if (config) {
             console.log(`   ✅ Found previous round: ${round.id.slice(0, 8)}...`);
             console.log(`      Created: ${round.createdAt.toISOString()}`);
             console.log(`      Period: ${round.startDate.toISOString().split('T')[0]} → ${round.endDate.toISOString().split('T')[0]}`);
+            console.log(`      Token mint: ${config.tokenMint}`);
 
             // Count how many END balances exist
             const endCount = await prisma.balanceSnapshot.count({
@@ -353,7 +355,7 @@ export class TradingActivityService {
 
             return round.id;
           } else {
-            console.log(`   ⏭️  Skipping round ${round.id.slice(0, 8)}... (different token mint or no config)`);
+            console.log(`   ⏭️  Skipping round ${round.id.slice(0, 8)}... (no config found with matching token mint)`);
           }
         } else {
           console.log(`   ⏭️  Skipping round ${round.id.slice(0, 8)}... (no END balances)`);
