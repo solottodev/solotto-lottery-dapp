@@ -7,11 +7,17 @@ type Entry = {
   id: string
   wallet: string
   tokenBalance?: number
-  tier?: number
+  tier?: number | null
   eligibilityScore?: number
   isWinner: boolean
   round?: { id: string; drawingDate?: string }
 }
+
+// Helper function to format tier display
+const formatTier = (tier: number | null | undefined): string => {
+  if (tier === null || tier === undefined) return 'Ineligible';
+  return String(tier);
+};
 
 export default function HistoryLookup() {
   const [address, setAddress] = useState('')
@@ -125,7 +131,7 @@ export default function HistoryLookup() {
       roundId,
       p.wallet || '',
       p.lottoUsdValue ?? p.tokenBalance ?? '',
-      p.tier ?? '',
+      formatTier(p.tier),
       p.percentTraded ?? p.eligibilityScore ?? '',
       p.isEligible ? 'Yes' : 'No',
       p.isWinner ? 'Yes' : 'No',
@@ -218,7 +224,7 @@ export default function HistoryLookup() {
               const headers = ['Round','Tier','Token Balance','Eligibility','Winner','Drawing Date']
               const rows = lookup.map((e) => [
                 e.round?.id || '',
-                e.tier ?? '',
+                formatTier(e.tier),
                 e.tokenBalance ?? '',
                 e.eligibilityScore ?? '',
                 e.isWinner ? 'Yes' : 'No',
@@ -261,7 +267,7 @@ export default function HistoryLookup() {
                   <td className="p-1.5 sm:p-2 text-slate-300">
                     <a className="text-primary underline break-all" href={`/history/${e.round?.id}`}>{e.round?.id}</a>
                   </td>
-                  <td className="p-1.5 sm:p-2">{e.tier ?? '—'}</td>
+                  <td className="p-1.5 sm:p-2">{formatTier(e.tier)}</td>
                   <td className="p-1.5 sm:p-2 hidden sm:table-cell">{e.tokenBalance ?? '—'}</td>
                   <td className="p-1.5 sm:p-2 hidden md:table-cell">{e.eligibilityScore ?? '—'}</td>
                   <td className="p-1.5 sm:p-2">{e.isWinner ? 'Yes' : 'No'}</td>

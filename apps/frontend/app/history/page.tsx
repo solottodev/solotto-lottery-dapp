@@ -14,6 +14,12 @@ type Round = {
   tierWinners: Record<string, string>
 }
 
+// Helper function to format tier display
+const formatTier = (tier: number | null | undefined): string => {
+  if (tier === null || tier === undefined) return 'Ineligible';
+  return String(tier);
+};
+
 export default function PublicHistoryPage() {
   const [address, setAddress] = useState('')
   const [lookup, setLookup] = useState<any[] | null>(null)
@@ -80,7 +86,7 @@ export default function PublicHistoryPage() {
                 const headers = ['Round','Tier','Token Balance','Eligibility','Winner','Drawing Date']
                 const rows = lookup.map((e) => [
                   e.round?.id || '',
-                  e.tier ?? '',
+                  formatTier(e.tier),
                   e.tokenBalance ?? '',
                   e.eligibilityScore ?? '',
                   e.isWinner ? 'Yes' : 'No',
@@ -123,7 +129,7 @@ export default function PublicHistoryPage() {
                     <td className="p-2 text-slate-300">
                       <a className="text-primary underline" href={`/history/${e.round?.id}`}>{e.round?.id}</a>
                     </td>
-                    <td className="p-2">{e.tier ?? '—'}</td>
+                    <td className="p-2">{formatTier(e.tier)}</td>
                     <td className="p-2">{e.tokenBalance ?? '—'}</td>
                     <td className="p-2">{e.eligibilityScore ?? '—'}</td>
                     <td className="p-2">{e.isWinner ? 'Yes' : 'No'}</td>
