@@ -91,23 +91,17 @@ router.get('/rounds', async (req, res) => {
     const page = Math.max(1, parseInt(String(req.query.page || '1')) || 1)
     const size = Math.max(1, Math.min(100, parseInt(String(req.query.size || '20')) || 20))
     const skip = (page - 1) * size
-
-    // Filter by network to avoid mixing devnet/mainnet history
-    const network = process.env.SOLANA_NETWORK || process.env.NEXT_PUBLIC_SOLANA_NETWORK || 'devnet'
-    const where = { network } as any
-
     const [total, rounds] = await Promise.all([
-      prismaRO.round.count({ where } as any),
+      prismaRO.round.count(),
       // Sort by drawingDate desc (most recent first), nulls last, then createdAt desc as fallback
       prismaRO.round.findMany({
-        where,
         orderBy: [
-          { drawingDate: { sort: 'desc', nulls: 'last' } } as any,
-          { createdAt: 'desc' } as any,
+          { drawingDate: { sort: 'desc', nulls: 'last' } },
+          { createdAt: 'desc' }
         ],
         skip,
-        take: size,
-      } as any),
+        take: size
+      }),
     ])
     return res.json({ rounds, meta: { page, size, total, pages: Math.ceil(total / size) } })
   } catch (e) {
