@@ -59,6 +59,7 @@ export default function TransparencyPortalPage() {
   const [data, setData] = useState<TransparencyData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:4000";
 
   useEffect(() => {
     fetch('/api/transparency')
@@ -85,7 +86,7 @@ export default function TransparencyPortalPage() {
 
   if (loading) {
     return (
-      <main className="mx-auto max-w-6xl px-6 py-10 text-white">
+      <main className="relative mx-auto flex min-h-screen w-full max-w-[95vw] sm:max-w-[90vw] 2xl:max-w-[1920px] flex-col gap-6 sm:gap-8 md:gap-10 px-4 sm:px-6 md:px-8 lg:px-14 pb-20 sm:pb-24 md:pb-32 pt-10 sm:pt-12 md:pt-14 text-white">
         <div className="flex items-center justify-center py-20">
           <div className="text-slate-400">Loading transparency data...</div>
         </div>
@@ -95,7 +96,7 @@ export default function TransparencyPortalPage() {
 
   if (error || !data) {
     return (
-      <main className="mx-auto max-w-6xl px-6 py-10 text-white">
+      <main className="relative mx-auto flex min-h-screen w-full max-w-[95vw] sm:max-w-[90vw] 2xl:max-w-[1920px] flex-col gap-6 sm:gap-8 md:gap-10 px-4 sm:px-6 md:px-8 lg:px-14 pb-20 sm:pb-24 md:pb-32 pt-10 sm:pt-12 md:pt-14 text-white">
         <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-6 text-center">
           <p className="text-red-400">Error loading transparency data: {error}</p>
         </div>
@@ -104,11 +105,11 @@ export default function TransparencyPortalPage() {
   }
 
   return (
-    <main className="mx-auto max-w-6xl px-6 py-10 text-white">
+    <main className="relative mx-auto flex min-h-screen w-full max-w-[95vw] sm:max-w-[90vw] 2xl:max-w-[1920px] flex-col gap-6 sm:gap-8 md:gap-10 px-4 sm:px-6 md:px-8 lg:px-14 pb-20 sm:pb-24 md:pb-32 pt-10 sm:pt-12 md:pt-14 text-white">
       {/* Header Section */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-primary mb-3">Transparency Portal</h1>
-        <p className="text-slate-300 text-lg leading-relaxed max-w-4xl">
+      <section className="space-y-3 sm:space-y-4">
+        <h2 className="text-xl sm:text-2xl md:text-3xl font-semibold text-primary">Transparency Portal</h2>
+        <p className="text-xs sm:text-sm md:text-base text-slate-300">
           Transparency is a top priority for Solotto as Solana's first on-chain lottery system.
           We provide direct access to our backend functions and scripts in the{' '}
           <a
@@ -122,10 +123,10 @@ export default function TransparencyPortalPage() {
           {' '}and a dedicated History & Audit Module with detailed information regarding all lottery drawings.
           Below are additional transparency artifacts providing even more visibility into our operations.
         </p>
-      </div>
+      </section>
 
       {/* Quick Access Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-12">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Transparency Dashboard API */}
         <button
           onClick={() => scrollToSection('dashboard-api')}
@@ -182,8 +183,8 @@ export default function TransparencyPortalPage() {
       </div>
 
       {/* System Status Section */}
-      <div className="mb-10">
-        <h2 className="text-2xl font-semibold text-primary mb-4">System Status</h2>
+      <section>
+        <h2 className="text-xl sm:text-2xl font-semibold text-primary mb-4">System Status</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <StatusCard label="RPC" status={data.systemStatus.rpc} />
           <StatusCard label="Database" status={data.systemStatus.database} />
@@ -192,12 +193,12 @@ export default function TransparencyPortalPage() {
         <p className="text-xs text-slate-500 mt-3">
           Last updated: {new Date(data.systemStatus.timestamp).toLocaleString()}
         </p>
-      </div>
+      </section>
 
       {/* Last Drawing Section */}
       {data.lastDrawing && (
-        <div className="mb-10">
-          <h2 className="text-2xl font-semibold text-primary mb-4">Latest Drawing</h2>
+        <section>
+          <h2 className="text-xl sm:text-2xl font-semibold text-primary mb-4">Latest Drawing</h2>
           <div className="rounded-xl border border-primary/20 bg-night-900/60 p-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
@@ -246,13 +247,29 @@ export default function TransparencyPortalPage() {
                   {data.lastDrawing.audit.blockhash && (
                     <div>
                       <span className="text-slate-400">Blockhash:</span>
-                      <span className="ml-2 text-white font-mono break-all">{data.lastDrawing.audit.blockhash}</span>
+                      <a
+                        href={`https://explorer.solana.com/block/${data.lastDrawing.audit.blockhash}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="ml-2 text-primary font-mono break-all hover:underline"
+                        aria-label="View blockhash on Solana Explorer"
+                      >
+                        {data.lastDrawing.audit.blockhash}
+                      </a>
                     </div>
                   )}
                   {data.lastDrawing.audit.slot && (
                     <div>
                       <span className="text-slate-400">Slot:</span>
-                      <span className="ml-2 text-white font-mono">{data.lastDrawing.audit.slot}</span>
+                      <a
+                        href={`https://explorer.solana.com/block/${data.lastDrawing.audit.slot}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="ml-2 text-primary font-mono hover:underline"
+                        aria-label="View slot on Solana Explorer"
+                      >
+                        {data.lastDrawing.audit.slot}
+                      </a>
                     </div>
                   )}
                   {data.lastDrawing.audit.seed && (
@@ -265,12 +282,12 @@ export default function TransparencyPortalPage() {
               </div>
             )}
           </div>
-        </div>
+        </section>
       )}
 
       {/* Transparency Dashboard API Section */}
-      <div id="dashboard-api" className="mb-10 scroll-mt-20">
-        <h2 className="text-2xl font-semibold text-primary mb-4">Transparency Dashboard API</h2>
+      <section id="dashboard-api" className="scroll-mt-20">
+        <h2 className="text-xl sm:text-2xl font-semibold text-primary mb-4">Transparency Dashboard API</h2>
         <div className="rounded-xl border border-primary/20 bg-night-900/60 p-6">
           <p className="text-slate-300 mb-4">
             The Transparency Dashboard API provides real-time access to operational data, system health metrics,
@@ -280,7 +297,7 @@ export default function TransparencyPortalPage() {
           <div className="mb-4">
             <div className="text-sm text-slate-400 mb-2">Endpoint</div>
             <code className="block rounded-lg bg-night-800 px-4 py-3 text-sm text-primary font-mono break-all">
-              {window.location.origin}/api/v1/transparency
+              {backendUrl}/api/v1/transparency
             </code>
           </div>
 
@@ -326,7 +343,12 @@ export default function TransparencyPortalPage() {
                       <span className="text-slate-500">{new Date(op.timestamp).toLocaleString()}</span>
                     </div>
                     <div className="text-slate-400">
-                      Round: <span className="text-white font-mono">{op.roundId.substring(0, 16)}...</span>
+                      Round: <Link
+                        href={`/dashboard/history/${op.roundId}`}
+                        className="text-primary font-mono hover:underline"
+                      >
+                        {op.roundId.substring(0, 16)}...
+                      </Link>
                     </div>
                   </div>
                 ))}
@@ -334,11 +356,11 @@ export default function TransparencyPortalPage() {
             </div>
           )}
         </div>
-      </div>
+      </section>
 
       {/* Swagger/OpenAPI Documentation Section */}
-      <div id="swagger-docs" className="mb-10 scroll-mt-20">
-        <h2 className="text-2xl font-semibold text-primary mb-4">Swagger/OpenAPI Documentation</h2>
+      <section id="swagger-docs" className="scroll-mt-20">
+        <h2 className="text-xl sm:text-2xl font-semibold text-primary mb-4">Swagger/OpenAPI Documentation</h2>
         <div className="rounded-xl border border-primary/20 bg-night-900/60 p-6">
           <p className="text-slate-300 mb-4">
             Interactive API documentation powered by Swagger UI. Browse all endpoints, view request/response schemas,
@@ -348,16 +370,17 @@ export default function TransparencyPortalPage() {
           <div className="mb-4">
             <div className="text-sm text-slate-400 mb-2">Documentation URL</div>
             <code className="block rounded-lg bg-night-800 px-4 py-3 text-sm text-primary font-mono break-all">
-              {window.location.origin.replace(':3000', ':4000')}/api/v1/docs
+              {backendUrl}/api/v1/docs
             </code>
           </div>
 
           <div className="flex flex-wrap gap-3">
             <a
-              href={`${window.location.origin.replace(':3000', ':4000')}/api/v1/docs`}
+              href={`${backendUrl}/api/v1/docs`}
               target="_blank"
               rel="noopener noreferrer"
               className="rounded-lg bg-badge-gradient px-4 py-2 text-sm font-semibold text-white hover:opacity-90 transition-opacity"
+              aria-label="Open Swagger API documentation"
             >
               Open API Docs
             </a>
@@ -374,11 +397,11 @@ export default function TransparencyPortalPage() {
             </ul>
           </div>
         </div>
-      </div>
+      </section>
 
       {/* Comprehensive Documentation Section */}
-      <div id="comprehensive-docs" className="mb-10 scroll-mt-20">
-        <h2 className="text-2xl font-semibold text-primary mb-4">Comprehensive Documentation</h2>
+      <section id="comprehensive-docs" className="scroll-mt-20">
+        <h2 className="text-xl sm:text-2xl font-semibold text-primary mb-4">Comprehensive Documentation</h2>
         <div className="rounded-xl border border-primary/20 bg-night-900/60 p-6">
           <p className="text-slate-300 mb-4">
             Full technical documentation covering the backend architecture, lottery workflow, randomness generation algorithm,
@@ -450,12 +473,12 @@ export default function TransparencyPortalPage() {
             </ul>
           </div>
         </div>
-      </div>
+      </section>
 
       {/* On-Chain Transactions */}
       {data.onChainTransactions.length > 0 && (
-        <div className="mb-10">
-          <h2 className="text-2xl font-semibold text-primary mb-4">Recent On-Chain Transactions</h2>
+        <section>
+          <h2 className="text-xl sm:text-2xl font-semibold text-primary mb-4">Recent On-Chain Transactions</h2>
           <div className="rounded-xl border border-primary/20 bg-night-900/60 p-6">
             <div className="space-y-2">
               {data.onChainTransactions.slice(0, 5).map((tx, idx) => (
@@ -480,18 +503,18 @@ export default function TransparencyPortalPage() {
               ))}
             </div>
             <a
-              href="/history"
+              href="/dashboard/history"
               className="mt-4 inline-block text-sm text-primary hover:underline"
             >
               View all transactions in History →
             </a>
           </div>
-        </div>
+        </section>
       )}
 
       {/* Source Code Info */}
-      <div className="rounded-xl border border-primary/20 bg-gradient-to-br from-night-900/80 to-night-800/60 p-6">
-        <h2 className="text-xl font-semibold text-primary mb-4">Source Code Verification</h2>
+      <section className="rounded-xl border border-primary/20 bg-gradient-to-br from-night-900/80 to-night-800/60 p-6">
+        <h2 className="text-lg sm:text-xl font-semibold text-primary mb-4">Source Code Verification</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
           <div>
             <div className="text-slate-400 mb-1">Repository</div>
@@ -524,7 +547,7 @@ export default function TransparencyPortalPage() {
             <div className="text-white">{data.sourceCode.buildDate || 'Not available'}</div>
           </div>
         </div>
-      </div>
+      </section>
     </main>
   );
 }

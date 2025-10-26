@@ -69,7 +69,7 @@ const modules: ModuleInfo[] = [
   {
     key: 'history',
     name: '6. History',
-    description: 'Access the full History Module for all lottery data.',
+    description: 'Access the full History & Audit Module for all lottery data.',
     href: '/dashboard/history',
     icon: HistoryIcon,
   },
@@ -236,7 +236,19 @@ export function ModuleGrid() {
                 {expanded[module.key] ? 'Collapse' : 'Expand'}
               </button>
             </div>
-            <p className="mt-2 sm:mt-3 text-[10px] sm:text-xs md:text-sm text-slate-300">{module.description}</p>
+            <p className="mt-2 sm:mt-3 text-[10px] sm:text-xs md:text-sm text-slate-300">
+              {module.key === 'history' ? (
+                <>
+                  Access the full{' '}
+                  <a href="/dashboard/history" className="text-primary hover:underline hover:opacity-80 transition-opacity font-semibold">
+                    History & Audit Module
+                  </a>
+                  {' '}for all lottery data.
+                </>
+              ) : (
+                module.description
+              )}
+            </p>
 
             <div className={expanded[module.key] ? '' : 'hidden'}>
             {/* Metrics Display */}
@@ -276,7 +288,13 @@ export function ModuleGrid() {
                   historyRounds.map((r) => (
                     <div key={r.id} className="rounded-lg border border-primary/20 bg-night-900/60 p-3">
                       <div className="flex items-center justify-between">
-                        <div className="text-primary font-semibold text-[10px] sm:text-xs">{shorten(r.id)}</div>
+                        <a
+                          href={`/dashboard/history/${r.id}`}
+                          className="text-primary font-semibold text-[10px] sm:text-xs hover:underline hover:opacity-80 transition-opacity"
+                          title={r.id}
+                        >
+                          {shorten(r.id)}
+                        </a>
                         <span className="rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[10px] text-primary">Released</span>
                       </div>
                       <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
