@@ -6,6 +6,10 @@ node_modules/
 .env.production
 *.log
 
+# TypeScript build info
+tsconfig.tsbuildinfo
+*.tsbuildinfo
+
 # Ignore accidental Windows reserved-name files (cannot be indexed on Windows)
 nul
 */nul

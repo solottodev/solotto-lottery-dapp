@@ -4,10 +4,15 @@
 
 :root {
   color-scheme: dark;
+  /* Initialize header height variable */
+  --header-height: 160px;
 }
 
 body {
   background-color: #050b1f;
+  /* Safe area insets for device notches and rounded corners */
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
 }
 
 /* Dynamic base font scaling for responsive readability */

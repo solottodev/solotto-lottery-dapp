@@ -55,22 +55,24 @@ export default function OperatorLogin() {
       {jwt ? (
         <button
           onClick={() => setJwt(null)}
-          className="rounded-lg bg-gradient-to-br from-green-500 to-emerald-500 px-3 sm:px-4 md:px-5 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold text-white shadow-lg hover:brightness-110 transition-all whitespace-nowrap"
+          className="rounded-lg bg-gradient-to-br from-green-500 to-emerald-500 px-2.5 sm:px-4 md:px-5 py-2 sm:py-2 text-[11px] sm:text-xs md:text-sm font-semibold text-white shadow-lg hover:brightness-110 transition-all whitespace-nowrap min-h-[44px]"
         >
-          Logged in • Logout
+          <span className="hidden sm:inline">Logged in • Logout</span>
+          <span className="sm:hidden">Logout</span>
         </button>
       ) : (
         <button
           onClick={() => setOpen(true)}
-          className="rounded-lg bg-gradient-to-br from-purple-500 to-cyan-500 px-3 sm:px-4 md:px-5 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold text-white shadow-lg hover:brightness-110 transition-all whitespace-nowrap"
+          className="rounded-lg bg-gradient-to-br from-purple-500 to-cyan-500 px-2.5 sm:px-4 md:px-5 py-2 sm:py-2 text-[11px] sm:text-xs md:text-sm font-semibold text-white shadow-lg hover:brightness-110 transition-all whitespace-nowrap min-h-[44px]"
         >
-          Authenticate as Operator
+          <span className="hidden sm:inline">Authenticate as Operator</span>
+          <span className="sm:hidden">Auth</span>
         </button>
       )}
 
       {open && (
-        <div className="fixed inset-0 z-[2000] flex items-start justify-end bg-black/60 backdrop-blur-sm p-4 pt-24 sm:pt-28 md:pt-32">
-          <div className="w-full max-w-sm rounded-2xl border border-primary/25 bg-night-900 p-6 text-slate-100 shadow-2xl">
+        <div className="fixed inset-0 z-[2000] flex items-start justify-end bg-black/60 backdrop-blur-sm p-3 sm:p-4" style={{ paddingTop: 'calc(var(--header-height, 160px) + 1rem)' }}>
+          <div className="w-full max-w-sm rounded-2xl border border-primary/25 bg-night-900 p-4 sm:p-6 text-slate-100 shadow-2xl">
             <div className="mb-4 text-left">
               <h3 className="text-lg font-semibold text-primary">Operator Login</h3>
               <p className="text-xs text-slate-400 mt-1">

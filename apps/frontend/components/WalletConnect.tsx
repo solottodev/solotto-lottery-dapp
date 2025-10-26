@@ -12,7 +12,7 @@ const WalletMultiButton = dynamic(
 );
 
 type WalletConnectProps = {
-  variant?: "inline" | "panel";
+  variant?: "inline" | "panel" | "compact";
   size?: "md" | "lg" | "xl";
 };
 
@@ -27,6 +27,7 @@ export function WalletConnect({ variant = "inline", size = "md" }: WalletConnect
   const wrapperClass =
     variant === "panel" ? "mt-4 flex w-full" : "flex items-center justify-end";
 
+  const compactSize = " rounded-lg px-2.5 sm:px-4 md:px-5 py-2 sm:py-2.5 text-[11px] sm:text-[13px] md:text-[15px] min-h-[44px]";
   const inlineSize =
     size === "xl"
       ? " rounded-lg px-7 py-3.5 text-[20px]"
@@ -41,7 +42,7 @@ export function WalletConnect({ variant = "inline", size = "md" }: WalletConnect
       : " w-full justify-center rounded-lg px-5 py-3 text-[15px]";
   const buttonClass =
     "bg-primary text-night font-semibold transition-shadow shadow-glow hover:brightness-110" +
-    (variant === "panel" ? panelSize : inlineSize);
+    (variant === "compact" ? compactSize : variant === "panel" ? panelSize : inlineSize);
 
   return (
     <div className={wrapperClass}>

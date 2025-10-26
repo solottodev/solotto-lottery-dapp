@@ -17,6 +17,9 @@ type RootLayoutProps = {
 export default function RootLayout({ children }: RootLayoutProps) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+      </head>
       <body className="min-h-screen overflow-x-hidden bg-night font-sans text-slate-100 antialiased">
         <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
           <div className="absolute inset-0 bg-body-gradient" />
@@ -25,7 +28,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
           <div className="absolute bottom-[-10rem] right-[-8rem] h-[32rem] w-[32rem] rounded-full bg-primary/10 blur-[18rem]" />
           <div className="absolute left-[-8rem] top-1/2 h-[26rem] w-[26rem] -translate-y-1/2 rounded-full bg-indigo/20 blur-[18rem]" />
         </div>
-        <div className="relative flex min-h-screen flex-col overflow-x-hidden pt-40 md:pt-48 lg:pt-52">
+        <div className="relative flex min-h-screen flex-col overflow-x-hidden" style={{ paddingTop: 'var(--header-height, 160px)' }}>
           <Providers>
             <SiteHeader />
             <div>{children}</div>
