@@ -27,10 +27,13 @@ router.get('/current', requireJwt, async (req, res) => {
     const priceService = getPriceService();
     const price = await priceService.getLottoUsdPrice(tokenMint);
 
+    // Get the cached source to show which API was used
+    const source = (priceService as any).priceCache?.source || 'CoinGecko';
+
     return res.json({
       success: true,
       price,
-      source: 'CoinGecko',
+      source,
       timestamp: new Date().toISOString(),
       tokenMint,
     });

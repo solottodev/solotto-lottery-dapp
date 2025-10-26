@@ -7,58 +7,112 @@ interface CoinGeckoPriceResponse {
   };
 }
 
+interface DexScreenerPair {
+  priceUsd: string;
+}
+
+interface DexScreenerResponse {
+  pairs?: DexScreenerPair[];
+}
+
 export class PriceService {
   private readonly COINGECKO_API = 'https://api.coingecko.com/api/v3/simple/token_price/solana';
+  private readonly DEXSCREENER_API = 'https://api.dexscreener.com/latest/dex/tokens';
+
+  // Simple in-memory cache with 5-minute TTL to reduce API calls
+  private priceCache: { price: number; timestamp: number; source: string } | null = null;
+  private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
   /**
-   * Fetch current LOTTO token price from CoinGecko
+   * Fetch current LOTTO token price with caching and fallback
+   * Strategy:
+   * 1. Check cache first (5min TTL)
+   * 2. Try CoinGecko API
+   * 3. Fallback to DexScreener if CoinGecko rate limits
    * @param tokenMint - Solana token mint address
    * @returns Price in USD
    */
   async getLottoUsdPrice(tokenMint: string): Promise<number> {
+    // Check cache first
+    if (this.priceCache && Date.now() - this.priceCache.timestamp < this.CACHE_TTL) {
+      console.log(`💰 Using cached price: $${this.priceCache.price} (source: ${this.priceCache.source})`);
+      return this.priceCache.price;
+    }
+
+    // Try CoinGecko first
     try {
-      console.log(`💵 Fetching LOTTO price from CoinGecko for ${tokenMint}...`);
-
-      const response = await axios.get<CoinGeckoPriceResponse>(this.COINGECKO_API, {
-        params: {
-          contract_addresses: tokenMint,
-          vs_currencies: 'usd',
-        },
-        timeout: 10000, // 10 second timeout
-      });
-
-      const priceData = response.data[tokenMint];
-
-      if (!priceData || typeof priceData.usd !== 'number') {
-        throw new Error(`Price data not found for token ${tokenMint}`);
-      }
-
-      const price = priceData.usd;
-      console.log(`✅ LOTTO price: $${price.toFixed(8)} USD`);
-
+      const price = await this.fetchFromCoinGecko(tokenMint);
+      this.priceCache = { price, timestamp: Date.now(), source: 'CoinGecko' };
       return price;
     } catch (error: any) {
-      console.error('❌ Failed to fetch LOTTO price:', error.message);
-      console.error('Error details:', {
-        code: error.code,
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        data: error.response?.data,
-        config: {
-          url: error.config?.url,
-          params: error.config?.params,
-        },
-      });
+      console.warn('⚠️ CoinGecko failed, trying DexScreener fallback...', error.message);
 
-      // Re-throw with user-friendly message
-      if (error.response?.status === 404) {
-        throw new Error('Token not found on CoinGecko. Token may not be listed yet.');
-      } else if (error.code === 'ECONNABORTED') {
-        throw new Error('CoinGecko API timeout. Please try again.');
-      } else {
-        throw new Error(`Failed to fetch token price. Please enter manually. (Error: ${error.message || error.code || 'unknown'})`);
+      // Fallback to DexScreener
+      try {
+        const price = await this.fetchFromDexScreener(tokenMint);
+        this.priceCache = { price, timestamp: Date.now(), source: 'DexScreener' };
+        return price;
+      } catch (fallbackError: any) {
+        console.error('❌ All price sources failed');
+        throw new Error(`Failed to fetch token price from any source. Please enter manually.`);
       }
     }
+  }
+
+  /**
+   * Fetch price from CoinGecko API
+   */
+  private async fetchFromCoinGecko(tokenMint: string): Promise<number> {
+    console.log(`💵 Fetching LOTTO price from CoinGecko for ${tokenMint}...`);
+
+    const response = await axios.get<CoinGeckoPriceResponse>(this.COINGECKO_API, {
+      params: {
+        contract_addresses: tokenMint,
+        vs_currencies: 'usd',
+      },
+      timeout: 10000, // 10 second timeout
+    });
+
+    const priceData = response.data[tokenMint];
+
+    if (!priceData || typeof priceData.usd !== 'number') {
+      throw new Error(`Price data not found for token ${tokenMint}`);
+    }
+
+    const price = priceData.usd;
+    console.log(`✅ CoinGecko price: $${price.toFixed(8)} USD`);
+
+    return price;
+  }
+
+  /**
+   * Fetch price from DexScreener API (fallback when CoinGecko rate limits)
+   */
+  private async fetchFromDexScreener(tokenMint: string): Promise<number> {
+    console.log(`🔄 Fetching LOTTO price from DexScreener for ${tokenMint}...`);
+
+    const response = await axios.get<DexScreenerResponse>(
+      `${this.DEXSCREENER_API}/${tokenMint}`,
+      {
+        timeout: 10000,
+      }
+    );
+
+    // DexScreener returns multiple pairs, we'll use the first one with highest liquidity
+    if (!response.data.pairs || response.data.pairs.length === 0) {
+      throw new Error('No trading pairs found on DexScreener');
+    }
+
+    // Get the first pair (usually the main pair with highest liquidity)
+    const mainPair = response.data.pairs[0];
+    const price = parseFloat(mainPair.priceUsd);
+
+    if (isNaN(price) || price <= 0) {
+      throw new Error('Invalid price data from DexScreener');
+    }
+
+    console.log(`✅ DexScreener price: $${price.toFixed(8)} USD`);
+    return price;
   }
 
   /**
