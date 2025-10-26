@@ -14,12 +14,20 @@ const prisma_1 = __importDefault(require("../prisma"));
 /**
  * Service for creating token holder snapshots
  *
- * Eligibility Requirements:
- * 1. USD Balance: Must hold ≥$50 USD worth of $LOTTO at snapshot time
- * 2. Trading Activity: Token balance must change by ≥50% during round period
+ * Eligibility Requirements (Two-Stage Filtering):
  *
- * Tier Distribution (based on END balance):
- * - Tier 1: Top 5% of holders
+ * STAGE 1 - Snapshot (Balance Filter):
+ * 1. USD Balance: Must hold ≥$50 USD worth of $LOTTO at snapshot time
+ *    - Wallets below minimum are stored with tier: null (dust wallets)
+ *    - Only wallets meeting minimum are assigned tiers
+ *
+ * STAGE 2 - Confirmation (Trading Activity Filter):
+ * 2. Trading Activity: Token balance must change by ≥50% during round period
+ *    - Applied during snapshot confirmation
+ *    - Wallets meeting balance but not trading are marked isEligible: false
+ *
+ * Tier Distribution (based on END balance of ELIGIBLE holders only):
+ * - Tier 1: Top 5% of holders meeting minimum balance
  * - Tier 2: Next 15% (5% - 20%)
  * - Tier 3: Next 30% (20% - 50%)
  * - Tier 4: Remaining 50% (50% - 100%)
@@ -99,30 +107,53 @@ class SnapshotService {
     /**
      * Assign tiers based on token balance
      *
-     * Tier 1: Top 5%
+     * NEW: Filters by minimum USD balance BEFORE tier assignment
+     *
+     * Tier 1: Top 5% of ELIGIBLE holders (≥$50 USD)
      * Tier 2: Next 15% (5-20%)
      * Tier 3: Next 30% (20-50%)
      * Tier 4: Bottom 50% (50-100%)
      */
-    assignTiers(holders) {
-        // Sort by balance descending (highest first)
-        const sorted = [...holders].sort((a, b) => {
+    assignTiers(holders, lottoUsdPrice, minUsdRequired = 50.0) {
+        // STEP 1: Calculate USD balance for ALL holders
+        console.log(`\n💵 Calculating USD balances (LOTTO price: $${lottoUsdPrice?.toFixed(8) ?? 'N/A'})...`);
+        const holdersWithUsd = holders.map(holder => {
+            const tokenLottoBalanceEnd = holder.balanceUi;
+            const tokenUsdBalance = lottoUsdPrice
+                ? tokenLottoBalanceEnd * lottoUsdPrice
+                : tokenLottoBalanceEnd; // Fallback if no price
+            return {
+                ...holder,
+                tokenLottoBalanceEnd,
+                tokenUsdBalance,
+            };
+        });
+        // STEP 2: Filter to minimum USD threshold BEFORE tier assignment
+        console.log(`\n🔍 Filtering holders by minimum USD balance ($${minUsdRequired})...`);
+        const eligibleByBalance = holdersWithUsd.filter(h => h.tokenUsdBalance >= minUsdRequired);
+        const dustWallets = holdersWithUsd.filter(h => h.tokenUsdBalance < minUsdRequired);
+        console.log(`   ✅ Eligible for tiers: ${eligibleByBalance.length} wallets (≥$${minUsdRequired})`);
+        console.log(`   🗑️  Dust wallets: ${dustWallets.length} wallets (<$${minUsdRequired})`);
+        // STEP 3: Sort ONLY eligible holders by balance (highest first)
+        const sorted = [...eligibleByBalance].sort((a, b) => {
             if (a.balanceUi > b.balanceUi)
                 return -1;
             if (a.balanceUi < b.balanceUi)
                 return 1;
             return 0;
         });
+        // STEP 4: Calculate tier cutoffs based ONLY on eligible holders
         const total = sorted.length;
-        const tier1Cutoff = Math.ceil(total * 0.05); // Top 5%
-        const tier2Cutoff = Math.ceil(total * 0.20); // Top 20% (5% + 15%)
-        const tier3Cutoff = Math.ceil(total * 0.50); // Top 50% (5% + 15% + 30%)
-        console.log(`📊 Tier cutoffs (total: ${total}):`);
+        const tier1Cutoff = Math.ceil(total * 0.05); // Top 5% of ELIGIBLE
+        const tier2Cutoff = Math.ceil(total * 0.20); // Top 20% of ELIGIBLE
+        const tier3Cutoff = Math.ceil(total * 0.50); // Top 50% of ELIGIBLE
+        console.log(`\n📊 Tier cutoffs (normalized to ${total} eligible holders):`);
         console.log(`   Tier 1: Top ${tier1Cutoff} holders (5%)`);
         console.log(`   Tier 2: Next ${tier2Cutoff - tier1Cutoff} holders (15%)`);
         console.log(`   Tier 3: Next ${tier3Cutoff - tier2Cutoff} holders (30%)`);
         console.log(`   Tier 4: Remaining ${total - tier3Cutoff} holders (50%)`);
-        const participants = sorted.map((holder, index) => {
+        // STEP 5: Assign tiers to eligible holders
+        const tieredParticipants = sorted.map((holder, index) => {
             let tier;
             if (index < tier1Cutoff) {
                 tier = 1;
@@ -140,23 +171,36 @@ class SnapshotService {
             // - tokenLottoBalanceStart: Inherited from previous round's END (set at round creation)
             //   OR captured fresh for first round (in BalanceSnapshot table)
             // - tokenLottoBalanceEnd: Current balance at snapshot time
-            // - tokenUsdBalance: TODO - Should be calculated with real token price from oracle
+            // - tokenUsdBalance: Calculated with real LOTTO price from config
             //
             // NOTE: We DO NOT set tokenLottoBalanceStart here - it was already set at round creation
             // (either inherited from previous round or captured fresh) and will be populated by
-            // the trading activity service during snapshot confirmation
-            const tokenLottoBalanceStart = holder.balanceUi; // Placeholder - will be overwritten in confirm
-            const tokenLottoBalanceEnd = holder.balanceUi; // Current balance at snapshot time
-            const tokenUsdBalance = holder.balanceUi; // TODO: Calculate with real price
+            // the trading activity service during snapshot confirmation. Use 0 as a neutral
+            // placeholder for wallets without a START record to avoid START=END leakage.
+            const tokenLottoBalanceStart = 0;
             return {
                 wallet: holder.owner,
                 tokenLottoBalanceStart,
-                tokenLottoBalanceEnd,
-                tokenUsdBalance,
+                tokenLottoBalanceEnd: holder.tokenLottoBalanceEnd,
+                tokenUsdBalance: holder.tokenUsdBalance,
                 tier,
             };
         });
-        return participants;
+        // STEP 6: Create dust wallet participants with tier: null
+        const dustParticipants = dustWallets.map(holder => ({
+            wallet: holder.owner,
+            // Use 0 for START placeholder to avoid implying a previous baseline
+            tokenLottoBalanceStart: 0,
+            tokenLottoBalanceEnd: holder.tokenLottoBalanceEnd,
+            tokenUsdBalance: holder.tokenUsdBalance,
+            tier: null, // NOT assigned to any tier
+        }));
+        // STEP 7: Combine tiered participants + dust wallets
+        const allParticipants = [...tieredParticipants, ...dustParticipants];
+        console.log(`\n✅ Total participants: ${allParticipants.length}`);
+        console.log(`   - Assigned to tiers: ${tieredParticipants.length}`);
+        console.log(`   - Dust wallets (tier: null): ${dustParticipants.length}`);
+        return allParticipants;
     }
     /**
      * Filter out blacklisted wallets
@@ -203,8 +247,30 @@ class SnapshotService {
         if (holders.length === 0) {
             throw new Error('No token holders found for this mint address');
         }
-        // 2. Assign tiers based on balance
-        let participants = this.assignTiers(holders);
+        // 1.5. Fetch LOTTO price from config for USD calculations
+        const round = await prisma_1.default.round.findUnique({ where: { id: roundId } });
+        if (!round)
+            throw new Error('Round not found');
+        const config = await prisma_1.default.lotteryConfig.findFirst({
+            where: {
+                snapshotStart: round.startDate,
+                snapshotEnd: round.endDate,
+                tokenMint: mintAddress, // Ensure we get the config for this token
+            },
+            orderBy: { createdAt: 'desc' },
+        });
+        const lottoUsdPrice = config?.lottoUsdPrice ?? null;
+        if (!lottoUsdPrice) {
+            console.warn('⚠️  WARNING: No LOTTO price configured!');
+            console.warn('   USD values will be inaccurate (using token balance as fallback)');
+            console.warn('   Please configure LOTTO price in Control Form for accurate results');
+        }
+        else {
+            console.log(`💵 Using LOTTO price: $${lottoUsdPrice.toFixed(8)} USD`);
+        }
+        // 2. Assign tiers based on balance (with USD calculation and minimum threshold)
+        const minUsdRequired = config?.minUsdLottoRequired ?? 50.0;
+        let participants = this.assignTiers(holders, lottoUsdPrice, minUsdRequired);
         // 3. Apply blacklists (combine hard blacklist + config blacklist)
         const hardBlacklist = this.getHardBlacklist();
         const combinedBlacklist = [...hardBlacklist, ...configBlacklist];
@@ -218,14 +284,18 @@ class SnapshotService {
             t3: participants.filter(p => p.tier === 3).length,
             t4: participants.filter(p => p.tier === 4).length,
         };
+        const dustCount = participants.filter(p => p.tier === null).length;
         console.log(`\n📊 Snapshot Summary:`);
         console.log(`   Total Holders: ${holders.length}`);
         console.log(`   Blacklisted: ${removed}`);
         console.log(`   Valid Participants: ${participants.length}`);
-        console.log(`   Tier 1: ${tierCounts.t1}`);
-        console.log(`   Tier 2: ${tierCounts.t2}`);
-        console.log(`   Tier 3: ${tierCounts.t3}`);
-        console.log(`   Tier 4: ${tierCounts.t4}`);
+        console.log(`   - Assigned to tiers: ${participants.length - dustCount}`);
+        console.log(`   - Dust wallets (tier: null): ${dustCount}`);
+        console.log(`\n   Tier Distribution:`);
+        console.log(`   Tier 1: ${tierCounts.t1} (5%)`);
+        console.log(`   Tier 2: ${tierCounts.t2} (15%)`);
+        console.log(`   Tier 3: ${tierCounts.t3} (30%)`);
+        console.log(`   Tier 4: ${tierCounts.t4} (50%)`);
         // 5. Store participants in database
         await this.storeParticipants(roundId, participants);
         return {
@@ -233,6 +303,7 @@ class SnapshotService {
             participants,
             tierCounts,
             blacklisted: removed,
+            dustWallets: dustCount,
         };
     }
     /**

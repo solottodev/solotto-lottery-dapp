@@ -220,8 +220,9 @@ export class SnapshotService {
       //
       // NOTE: We DO NOT set tokenLottoBalanceStart here - it was already set at round creation
       // (either inherited from previous round or captured fresh) and will be populated by
-      // the trading activity service during snapshot confirmation
-      const tokenLottoBalanceStart = holder.tokenLottoBalanceEnd; // Placeholder - will be overwritten in confirm
+      // the trading activity service during snapshot confirmation. Use 0 as a neutral
+      // placeholder for wallets without a START record to avoid START=END leakage.
+      const tokenLottoBalanceStart = 0;
 
       return {
         wallet: holder.owner,
@@ -235,7 +236,8 @@ export class SnapshotService {
     // STEP 6: Create dust wallet participants with tier: null
     const dustParticipants: SnapshotParticipant[] = dustWallets.map(holder => ({
       wallet: holder.owner,
-      tokenLottoBalanceStart: holder.tokenLottoBalanceEnd,
+      // Use 0 for START placeholder to avoid implying a previous baseline
+      tokenLottoBalanceStart: 0,
       tokenLottoBalanceEnd: holder.tokenLottoBalanceEnd,
       tokenUsdBalance: holder.tokenUsdBalance,
       tier: null, // NOT assigned to any tier

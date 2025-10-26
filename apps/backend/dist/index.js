@@ -17,6 +17,7 @@ const history_1 = __importDefault(require("./routes/history"));
 const snapshot_1 = __importDefault(require("./routes/snapshot"));
 const drawing_1 = __importDefault(require("./routes/drawing"));
 const transparency_1 = __importDefault(require("./routes/transparency"));
+const price_1 = __importDefault(require("./routes/price"));
 dotenv_1.default.config();
 const app = (0, express_1.default)();
 app.use((0, cors_1.default)());
@@ -48,6 +49,7 @@ app.use('/api/v1/history', history_1.default);
 app.use('/api/v1/snapshot', snapshot_1.default);
 app.use('/api/v1/drawing', drawing_1.default);
 app.use('/api/v1/transparency', transparency_1.default);
+app.use('/api/v1/price', price_1.default);
 // Keep auth endpoints unversioned for now (can add /api/v1 later)
 app.use("/auth", auth_1.default);
 app.use('/api/v1/auth', auth_1.default);

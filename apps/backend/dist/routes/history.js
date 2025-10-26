@@ -194,7 +194,9 @@ router.get('/wallet/:address', async (req, res) => {
 router.get('/export', async (_req, res) => {
     try {
         const rounds = await prisma_1.prismaRO.round.findMany({ orderBy: { createdAt: 'desc' } });
+        const network = process.env.SOLANA_NETWORK || 'devnet';
         const headers = [
+            'Network',
             'Round ID',
             'Round Start Date',
             'Round End Date',
@@ -225,6 +227,7 @@ router.get('/export', async (_req, res) => {
             for (let i = 0; i < tiers.length; i++) {
                 const t = tiers[i];
                 rows.push([
+                    r.network || network,
                     r.id,
                     r.startDate?.toISOString?.() || '',
                     r.endDate?.toISOString?.() || '',
@@ -267,32 +270,37 @@ router.get('/export', async (_req, res) => {
 router.get('/export/participants', async (_req, res) => {
     try {
         const participants = await prisma_1.prismaRO.participant.findMany({ include: { Round: true } });
+        const network = process.env.SOLANA_NETWORK || 'devnet';
         const headers = [
+            'Network',
             'Round ID',
             'Participant ID',
             'Wallet Address',
             'Round Start Date',
             'Round End Date',
             'Drawing Date',
-            'Token LOTTO Balance',
-            'Token USD Balance',
+            'Token LOTTO Balance (Start)',
+            'Token LOTTO Balance (End)',
+            'Token USD Value',
             'Tier',
-            'Eligibility Score',
+            'Trading Activity %',
             'Is Eligible',
             'Is Winner',
             'Is Blacklisted'
         ];
         const rows = participants.map((p) => [
+            p.Round?.network || network,
             p.roundId,
             p.id,
             p.wallet,
             p.Round?.startDate?.toISOString?.() || '',
             p.Round?.endDate?.toISOString?.() || '',
             p.Round?.drawingDate?.toISOString?.() || '',
-            p.tokenLottoBalanceEnd?.toString?.() || '',
-            p.tokenUsdBalance?.toString?.() || '',
+            p.tokenLottoBalanceStart?.toString?.() || '0',
+            p.tokenLottoBalanceEnd?.toString?.() || '0',
+            p.tokenUsdBalance?.toString?.() || '0',
             p.tier?.toString?.() || '',
-            p.eligibilityScore?.toString?.() || '', // Trading activity %
+            p.eligibilityScore?.toString?.() || '0',
             p.isEligible ? 'TRUE' : 'FALSE',
             p.isWinner ? 'TRUE' : 'FALSE',
             'FALSE', // Blacklisted wallets are excluded from participants table

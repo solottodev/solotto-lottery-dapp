@@ -57,6 +57,8 @@ router.post('/run', requireJwt_1.requireJwt, async (req, res) => {
                 totalHolders: result.totalHolders,
                 blacklisted: result.blacklisted,
                 validParticipants: result.participants.length,
+                tieredParticipants: result.participants.filter(p => p.tier !== null).length,
+                dustWallets: result.dustWallets,
                 participantCounts: result.tierCounts,
             });
         }
@@ -128,21 +130,60 @@ router.post('/confirm', requireJwt_1.requireJwt, async (req, res) => {
         });
         // Apply final eligibility rules: BOTH token balance AND trade activity must meet thresholds
         console.log('\n🔍 Final Eligibility Check (USD Balance + Trade Activity):\n');
-        for (const p of allParticipants) {
+        // Separate dust wallets from tiered participants for clearer logging
+        const dustWallets = allParticipants.filter(p => p.tier === null);
+        const tieredParticipants = allParticipants.filter(p => p.tier !== null);
+        // Process dust wallets (automatically ineligible) - BATCH UPDATE
+        if (dustWallets.length > 0) {
+            console.log(`   🗑️  Marking ${dustWallets.length} dust wallets as ineligible...`);
+            await prisma_1.default.participant.updateMany({
+                where: {
+                    id: { in: dustWallets.map(p => p.id) }
+                },
+                data: { isEligible: false }
+            });
+            console.log(`   ✅ Processed ${dustWallets.length} dust wallets (marked ineligible)\n`);
+        }
+        // Process tiered participants (check trading activity) - BATCH UPDATES
+        const eligibleIds = [];
+        const ineligibleIds = [];
+        for (const p of tieredParticipants) {
             const usdBalance = p.tokenUsdBalance ?? 0;
             const tradePercent = p.eligibilityScore ?? 0;
-            // ✅ BOTH conditions must be met for eligibility
-            const meetsUsdThreshold = usdBalance >= minUsdLotto;
+            // ✅ USD threshold already met (since they have a tier)
+            // Only need to check trading activity
             const meetsTradeThreshold = tradePercent >= minTradePercent;
-            const isEligible = meetsUsdThreshold && meetsTradeThreshold;
-            console.log(`   ${isEligible ? '✅' : '❌'} ${p.wallet.slice(0, 8)}... - ` +
-                `Balance: $${usdBalance.toFixed(2)} ${meetsUsdThreshold ? '✓' : '✗'}, ` +
-                `Trade: ${tradePercent.toFixed(1)}% ${meetsTradeThreshold ? '✓' : '✗'}`);
-            await prisma_1.default.participant.update({
-                where: { id: p.id },
-                data: { isEligible }
+            const isEligible = meetsTradeThreshold;
+            if (isEligible) {
+                eligibleIds.push(p.id);
+            }
+            else {
+                ineligibleIds.push(p.id);
+            }
+            // Log sample (every 10th participant to reduce noise)
+            if (tieredParticipants.indexOf(p) % 10 === 0 || tieredParticipants.indexOf(p) < 5) {
+                console.log(`   ${isEligible ? '✅' : '❌'} ${p.wallet.slice(0, 8)}... - ` +
+                    `Tier ${p.tier}, Balance: $${usdBalance.toFixed(2)}, ` +
+                    `Trade: ${tradePercent.toFixed(1)}% ${meetsTradeThreshold ? '✓' : '✗'}`);
+            }
+        }
+        // Batch update eligible participants
+        if (eligibleIds.length > 0) {
+            await prisma_1.default.participant.updateMany({
+                where: { id: { in: eligibleIds } },
+                data: { isEligible: true }
             });
         }
+        // Batch update ineligible participants
+        if (ineligibleIds.length > 0) {
+            await prisma_1.default.participant.updateMany({
+                where: { id: { in: ineligibleIds } },
+                data: { isEligible: false }
+            });
+        }
+        console.log(`\n   ✅ Processed ${tieredParticipants.length} tiered participants`);
+        console.log(`      - Eligible: ${eligibleIds.length}`);
+        console.log(`      - Ineligible: ${ineligibleIds.length}`);
         // Count total and eligible participants
         const totalParticipants = allParticipants.length;
         const eligibleParticipants = await prisma_1.default.participant.count({
@@ -150,8 +191,13 @@ router.post('/confirm', requireJwt_1.requireJwt, async (req, res) => {
         });
         console.log(`Total participants: ${totalParticipants}, Eligible: ${eligibleParticipants}`);
         // Get tier counts for eligible participants only
+        // NOTE: Participants with tier: null (dust wallets) are excluded from groupBy
         const tierCounts = await prisma_1.default.participant.groupBy({
-            where: { roundId: snap.roundId, isEligible: true },
+            where: {
+                roundId: snap.roundId,
+                isEligible: true,
+                tier: { not: null } // Explicitly exclude dust wallets
+            },
             by: ['tier'],
             _count: { _all: true },
         });

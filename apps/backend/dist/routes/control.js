@@ -49,7 +49,15 @@ router.post('/', requireJwt_1.requireJwt, async (req, res) => {
                 })),
             });
         }
-        const { tokenMint, tokenDecimals, snapshotStart, snapshotEnd, drawTime, tradePercentage, minUsdLottoRequired, prizeDistributionPercent, slippageTolerancePercent, blacklist, prizeSourceWallet, prizeSourceBalanceSol, } = parsed.data;
+        const { tokenMint, tokenDecimals, snapshotStart, snapshotEnd, drawTime, tradePercentage, minUsdLottoRequired, prizeDistributionPercent, slippageTolerancePercent, blacklist, prizeSourceWallet, prizeSourceBalanceSol, lottoUsdPrice, // 🆕 LOTTO price in USD
+         } = parsed.data;
+        // 💵 Log LOTTO price if provided
+        if (lottoUsdPrice) {
+            console.log(`💵 LOTTO Price provided: $${lottoUsdPrice} USD`);
+        }
+        else {
+            console.warn('⚠️  No LOTTO price provided - USD values will be inaccurate');
+        }
         // ✅ NEW: Validate prize source wallet balance on-chain
         try {
             const rpcService = (0, rpc_service_1.getRPCService)();
@@ -121,6 +129,7 @@ router.post('/', requireJwt_1.requireJwt, async (req, res) => {
                 prizeDistributionPercent,
                 slippageTolerancePercent,
                 blacklist: combined,
+                lottoUsdPrice, // 🆕 Store LOTTO price for USD calculations
                 status: client_1.ConfigStatus.PENDING,
                 createdById: userId,
             },

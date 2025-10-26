@@ -17,4 +17,10 @@ exports.lotteryConfigSchema = zod_1.z.object({
     blacklist: zod_1.z.array(zod_1.z.string().min(1)).optional().default([]),
     prizeSourceWallet: zod_1.z.string().min(1, 'Source wallet is required'),
     prizeSourceBalanceSol: zod_1.z.number().min(0, 'Source balance must be non-negative'),
+    // LOTTO token price in USD at round creation time
+    lottoUsdPrice: zod_1.z
+        .number()
+        .positive('LOTTO price must be positive')
+        .max(1000, 'LOTTO price seems unrealistic (>$1000)')
+        .optional(), // Optional to allow operator to skip (not recommended)
 });

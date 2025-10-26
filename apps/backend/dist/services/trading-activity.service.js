@@ -167,37 +167,54 @@ class TradingActivityService {
                 where: { roundId }
             });
             console.log(`   Processing ${participants.length} participants...`);
+            // OPTIMIZATION: Fetch ALL balance snapshots in one query
+            const allSnapshots = await prisma_1.default.balanceSnapshot.findMany({
+                where: { roundId }
+            });
+            // Create lookup maps for fast access
+            const startBalances = new Map();
+            const endBalances = new Map();
+            allSnapshots.forEach(snap => {
+                if (snap.snapshotType === 'START') {
+                    startBalances.set(snap.wallet, snap.tokenBalance);
+                }
+                else if (snap.snapshotType === 'END') {
+                    endBalances.set(snap.wallet, snap.tokenBalance);
+                }
+            });
             let eligibleCount = 0;
+            const updates = [];
+            // Calculate trading activity for all participants (no DB queries in loop)
             for (const participant of participants) {
-                const tradePercent = await this.calculateTradeActivity(roundId, participant.wallet);
+                // If no START snapshot exists, treat START as 0 (new wallet this round)
+                const startBalance = startBalances.get(participant.wallet) ?? 0;
+                const endBalance = endBalances.get(participant.wallet) ?? participant.tokenLottoBalanceEnd ?? 0;
+                // Calculate trade activity percentage
+                const tradePercent = this.calculateTradePercentage(startBalance, endBalance);
                 const meetsTradeThreshold = tradePercent >= minTradePercent;
                 if (meetsTradeThreshold)
                     eligibleCount++;
-                // Get actual START balance from BalanceSnapshot table
-                const startSnapshot = await prisma_1.default.balanceSnapshot.findUnique({
-                    where: {
-                        roundId_wallet_snapshotType: {
-                            roundId,
-                            wallet: participant.wallet,
-                            snapshotType: 'START'
-                        }
-                    }
-                });
-                // Update the participant with their trading activity score AND actual START balance
-                await prisma_1.default.participant.update({
-                    where: { id: participant.id },
+                updates.push({
+                    id: participant.id,
                     data: {
                         eligibilityScore: tradePercent,
-                        tokenLottoBalanceStart: startSnapshot?.tokenBalance ?? participant.tokenLottoBalanceEnd,
-                        // Note: isEligible will be set in snapshot/confirm route
-                        // after checking BOTH trade% AND token balance requirements
+                        tokenLottoBalanceStart: startBalance
                     }
                 });
-                const status = meetsTradeThreshold ? '✅' : '❌';
-                console.log(`   ${status} ${participant.wallet.slice(0, 8)}... - ` +
-                    `Trade Activity: ${tradePercent.toFixed(2)}% ` +
-                    `(${startSnapshot?.tokenBalance?.toFixed(2) ?? 'N/A'} → ${participant.tokenLottoBalanceEnd?.toFixed(2) ?? 0})`);
+                // Log sample (every 10th participant to reduce noise)
+                if (participants.indexOf(participant) % 10 === 0 || participants.indexOf(participant) < 5) {
+                    const status = meetsTradeThreshold ? '✅' : '❌';
+                    console.log(`   ${status} ${participant.wallet.slice(0, 8)}... - ` +
+                        `Trade Activity: ${tradePercent.toFixed(2)}% ` +
+                        `(${startBalance.toFixed(2)} → ${endBalance.toFixed(2)})`);
+                }
             }
+            // OPTIMIZATION: Batch update all participants using transactions
+            console.log(`   📝 Updating ${updates.length} participants in batch...`);
+            await prisma_1.default.$transaction(updates.map(({ id, data }) => prisma_1.default.participant.update({
+                where: { id },
+                data
+            })));
             console.log(`\n✅ Trading activity calculated for ${participants.length} participants`);
             console.log(`   Meets trade threshold (${minTradePercent}%): ${eligibleCount}/${participants.length}`);
             console.log(`   Note: Final eligibility also requires $50+ USD balance`);
@@ -210,6 +227,16 @@ class TradingActivityService {
             console.error('❌ Failed to update participant eligibility:', error);
             throw new Error(`Failed to update participant eligibility: ${error instanceof Error ? error.message : String(error)}`);
         }
+    }
+    /**
+     * Calculate trade percentage from start and end balances
+     */
+    calculateTradePercentage(startBalance, endBalance) {
+        if (startBalance === 0) {
+            return endBalance > 0 ? 100 : 0;
+        }
+        const change = Math.abs(endBalance - startBalance);
+        return (change / startBalance) * 100;
     }
     /**
      * Get trading activity statistics for a round (for debugging/monitoring)

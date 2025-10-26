@@ -221,7 +221,8 @@ export class TradingActivityService {
 
       // Calculate trading activity for all participants (no DB queries in loop)
       for (const participant of participants) {
-        const startBalance = startBalances.get(participant.wallet) ?? participant.tokenLottoBalanceEnd ?? 0;
+        // If no START snapshot exists, treat START as 0 (new wallet this round)
+        const startBalance = startBalances.get(participant.wallet) ?? 0;
         const endBalance = endBalances.get(participant.wallet) ?? participant.tokenLottoBalanceEnd ?? 0;
 
         // Calculate trade activity percentage
