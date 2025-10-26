@@ -200,6 +200,11 @@ export const useModuleStore = create<ModuleStore>()(
   setHistoryRoundsFromApi: (rounds) => set((state) => {
     const list = Array.isArray(rounds) ? rounds : []
     const apiRounds = list.map((r) => ({ ...r, isLocal: false }))
+    // Gate local (client-only) previews behind an env flag for production cleanliness
+    const allowLocal = process.env.NEXT_PUBLIC_ENABLE_LOCAL_HISTORY === '1'
+    if (!allowLocal) {
+      return { historyRounds: [...apiRounds] }
+    }
     const localPreviews = (state.historyRounds || []).filter(
       (r) => r.isLocal && !apiRounds.some((api) => api.id === r.id)
     )
