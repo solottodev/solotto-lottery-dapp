@@ -39,6 +39,16 @@ export class PriceService {
       return price;
     } catch (error: any) {
       console.error('❌ Failed to fetch LOTTO price:', error.message);
+      console.error('Error details:', {
+        code: error.code,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        config: {
+          url: error.config?.url,
+          params: error.config?.params,
+        },
+      });
 
       // Re-throw with user-friendly message
       if (error.response?.status === 404) {
@@ -46,7 +56,7 @@ export class PriceService {
       } else if (error.code === 'ECONNABORTED') {
         throw new Error('CoinGecko API timeout. Please try again.');
       } else {
-        throw new Error('Failed to fetch token price. Please enter manually.');
+        throw new Error(`Failed to fetch token price. Please enter manually. (Error: ${error.message || error.code || 'unknown'})`);
       }
     }
   }
