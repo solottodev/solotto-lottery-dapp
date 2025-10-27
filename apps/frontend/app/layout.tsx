@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 
 import { Providers } from "./providers";
 import SiteHeader from "@/components/SiteHeader";
+import SiteFooter from "@/components/SiteFooter";
 
 export const metadata: Metadata = {
   title: "Solotto | On-Chain dApp",
@@ -40,7 +41,10 @@ export default function RootLayout({ children }: RootLayoutProps) {
         <div className="relative flex min-h-screen flex-col overflow-x-hidden" style={{ paddingTop: 'var(--header-height, 160px)' }}>
           <Providers>
             <SiteHeader />
-            <div>{children}</div>
+            <main className="flex flex-1 flex-col">
+              {children}
+            </main>
+            <SiteFooter />
           </Providers>
         </div>
       </body>
