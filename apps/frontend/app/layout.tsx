@@ -6,8 +6,17 @@ import { Providers } from "./providers";
 import SiteHeader from "@/components/SiteHeader";
 
 export const metadata: Metadata = {
-  title: "Solotto Lottery",
-  description: "Decentralized lottery dashboard powered by Tailwind CSS",
+  title: "Solotto | On-Chain dApp",
+  description: "On-Chain Decentralized Lottery Application powered by Solana",
+  icons: {
+    icon: [
+      { url: "/solotto-favicon.svg", type: "image/svg+xml" },
+      { url: "/solotto-favicon.svg", rel: "shortcut icon" },
+    ],
+    apple: [
+      { url: "/solotto-favicon.svg" },
+    ],
+  },
 };
 
 type RootLayoutProps = {
