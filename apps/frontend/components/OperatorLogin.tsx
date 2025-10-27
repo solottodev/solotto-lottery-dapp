@@ -125,21 +125,30 @@ export default function OperatorLogin() {
                 </div>
               )}
               {error && <div className="text-red-400 text-sm">{error}</div>}
-              <div className="flex items-center justify-end gap-2 pt-2">
-                <button
-                  type="button"
+              <div className="flex items-center justify-between pt-2">
+                <a
+                  href="/setup-2fa"
+                  className="text-xs text-slate-400 hover:text-cyan-400 transition-colors"
                   onClick={handleClose}
-                  className="rounded-lg border border-primary/25 px-4 py-2 text-sm text-slate-200 hover:bg-night-800 transition-colors"
                 >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="rounded-lg bg-badge-gradient px-4 py-2 text-sm font-semibold text-white shadow-md disabled:opacity-60 hover:brightness-110 transition-all"
-                >
-                  {loading ? 'Verifying…' : requiresTOTP ? 'Verify Code' : 'Sign in'}
-                </button>
+                  2FA Setup/Change Password
+                </a>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleClose}
+                    className="rounded-lg border border-primary/25 px-4 py-2 text-sm text-slate-200 hover:bg-night-800 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="rounded-lg bg-badge-gradient px-4 py-2 text-sm font-semibold text-white shadow-md disabled:opacity-60 hover:brightness-110 transition-all"
+                  >
+                    {loading ? 'Verifying…' : requiresTOTP ? 'Verify Code' : 'Sign in'}
+                  </button>
+                </div>
               </div>
             </form>
           </div>

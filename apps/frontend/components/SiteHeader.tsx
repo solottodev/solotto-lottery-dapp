@@ -48,7 +48,7 @@ export default function SiteHeader() {
     <header ref={headerRef} className="fixed left-0 right-0 top-0 z-[1000] w-full border-b border-primary/20 bg-night-900/90 backdrop-blur supports-[backdrop-filter]:bg-night-900/70" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
       {/* Announcement strip */}
       <div className="w-full bg-gradient-to-r from-[#9945ff] via-[#14f195] to-[#00ffa3] py-1.5 sm:py-2 md:py-3 text-center text-[9px] sm:text-xs md:text-sm font-semibold uppercase tracking-[0.15em] sm:tracking-[0.2em] md:tracking-[0.25em] text-slate-900 shadow-[0_4px_16px_rgba(0,0,0,0.25)]">
-        <span className="sm:hidden">Secure On-Chain — Auth Required</span>
+        <span className="sm:hidden">Secure On-Chain Lottery System</span>
         <span className="hidden sm:inline">Secure and Transparent on-chain environment — User authentication required</span>
       </div>
 
@@ -93,14 +93,14 @@ export default function SiteHeader() {
               href="/dashboard/history"
               className="rounded-lg border border-primary/30 bg-night-800/80 px-2.5 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold text-primary hover:bg-night-700 hover:border-primary/50 transition-all hover:shadow-[0_0_12px_rgba(34,211,238,0.3)] whitespace-nowrap"
             >
-              <span className="sm:hidden">History</span>
+              <span className="sm:hidden">History Module</span>
               <span className="hidden sm:inline">History & Audit Module</span>
             </Link>
             <Link
               href="/transparency"
               className="rounded-lg border border-primary/30 bg-night-800/80 px-2.5 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold text-primary hover:bg-night-700 hover:border-primary/50 transition-all hover:shadow-[0_0_12px_rgba(34,211,238,0.3)] whitespace-nowrap"
             >
-              <span className="sm:hidden">Portal</span>
+              <span className="sm:hidden">Transparency Portal</span>
               <span className="hidden sm:inline">Transparency Portal</span>
             </Link>
           </div>
