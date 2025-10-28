@@ -68,7 +68,7 @@ export default function SiteHeader() {
           {/* Center: Subtitle */}
           <div className="hidden md:flex items-center">
             <p className="text-base md:text-lg lg:text-xl text-slate-200 tracking-wide text-center">
-              On-Chain:Automated & Auditable
+              On-Chain: Automated & Auditable
             </p>
           </div>
 
