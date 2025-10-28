@@ -412,7 +412,7 @@ export default function TransparencyPortalPage() {
             <div className="text-sm text-slate-400 mb-2">Documentation Files</div>
             <div className="space-y-2">
               <a
-                href={`${data.sourceCode.backend}/blob/main/TRANSPARENCY.md`}
+                href={`${data.sourceCode.repository}/blob/main/apps/backend/TRANSPARENCY.md`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 rounded-lg bg-night-800 px-4 py-3 text-sm hover:bg-night-700 transition-colors"
@@ -424,7 +424,7 @@ export default function TransparencyPortalPage() {
                 <span className="ml-auto text-xs text-slate-500">Main documentation</span>
               </a>
               <a
-                href={`${data.sourceCode.backend}/blob/main/README_TRANSPARENCY.md`}
+                href={`${data.sourceCode.repository}/blob/main/apps/backend/README_TRANSPARENCY.md`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 rounded-lg bg-night-800 px-4 py-3 text-sm hover:bg-night-700 transition-colors"
@@ -436,7 +436,7 @@ export default function TransparencyPortalPage() {
                 <span className="ml-auto text-xs text-slate-500">Quick start guide</span>
               </a>
               <a
-                href={`${data.sourceCode.backend}/blob/main/PRODUCTION_CHECKLIST.md`}
+                href={`${data.sourceCode.repository}/blob/main/apps/backend/PRODUCTION_CHECKLIST.md`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 rounded-lg bg-night-800 px-4 py-3 text-sm hover:bg-night-700 transition-colors"
