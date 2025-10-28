@@ -5,7 +5,7 @@ const footerLinks = [
   {
     heading: "Platform",
     links: [
-      { label: "Official Solotto Project Site", href: "https://solotto.live" },
+      { label: "Solotto $LOTTO Project Site", href: "https://solotto.live" },
       { label: "Lottery History", href: "https://solotto-lottery-dapp-frontend.vercel.app/dashboard/history" },
       { label: "Transparency", href: "https://solotto-lottery-dapp-frontend.vercel.app/transparency" },
       { label: "Legal", href: "https://solotto.live/legal" },

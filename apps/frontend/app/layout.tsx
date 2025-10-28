@@ -7,7 +7,7 @@ import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
 
 export const metadata: Metadata = {
-  title: "Solotto | On-Chain dApp",
+  title: "Solotto | On-Chain Lottery dApp",
   description: "On-Chain Decentralized Lottery Application powered by Solana",
   icons: {
     icon: [
