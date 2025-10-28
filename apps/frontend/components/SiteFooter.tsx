@@ -47,7 +47,7 @@ export default function SiteFooter() {
           <div className="max-w-md space-y-4">
             <Link href="/" className="inline-flex items-center gap-2">
               <span className="h-3 w-3 rounded-full bg-primary shadow-[0_0_16px_rgba(34,211,238,0.55)]" />
-              <span className="text-2xl font-semibold tracking-wide brand-gradient">SOLOTTO</span>
+              <span className="text-2xl font-semibold tracking-wide brand-gradient">SOLOTTO LOTTERY</span>
             </Link>
             <p className="text-sm leading-relaxed text-slate-300">
               Purpose-built for transparent, auditable Solana lotteries. Monitor drawing integrity, follow the prize pool, and stay plugged into the ecosystem from a single control surface.

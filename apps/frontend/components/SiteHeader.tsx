@@ -60,7 +60,7 @@ export default function SiteHeader() {
             <Link href="/" className="flex items-center gap-1.5 sm:gap-2 hover:opacity-80 transition-opacity">
               <div className="h-2.5 w-2.5 sm:h-3 sm:w-3 md:h-3.5 md:w-3.5 rounded-full bg-primary shadow-[0_0_12px_rgba(34,211,238,0.8)]" />
               <span className="text-xl sm:text-2xl md:text-3xl lg:text-4xl leading-none font-semibold tracking-wider brand-gradient">
-                SOLOTTO
+                SOLOTTO LOTTERY
               </span>
             </Link>
           </div>
