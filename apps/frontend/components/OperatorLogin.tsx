@@ -55,7 +55,7 @@ export default function OperatorLogin() {
       {jwt ? (
         <button
           onClick={() => setJwt(null)}
-          className="rounded-lg bg-gradient-to-br from-green-500 to-emerald-500 px-2.5 sm:px-4 md:px-5 py-2 sm:py-2 text-[11px] sm:text-xs md:text-sm font-semibold text-white shadow-lg hover:brightness-110 transition-all whitespace-nowrap min-h-[44px]"
+          className="rounded-lg bg-gradient-to-br from-green-500 to-emerald-500 px-2 sm:px-4 md:px-5 py-2 sm:py-2 text-[11px] sm:text-xs md:text-sm font-semibold text-white shadow-lg hover:brightness-110 transition-all whitespace-nowrap min-h-[44px]"
         >
           <span className="hidden sm:inline">Logged in • Logout</span>
           <span className="sm:hidden">Logout</span>
@@ -63,7 +63,7 @@ export default function OperatorLogin() {
       ) : (
         <button
           onClick={() => setOpen(true)}
-          className="rounded-lg bg-gradient-to-br from-purple-500 to-cyan-500 px-2.5 sm:px-4 md:px-5 py-2 sm:py-2 text-[11px] sm:text-xs md:text-sm font-semibold text-white shadow-lg hover:brightness-110 transition-all whitespace-nowrap min-h-[44px]"
+          className="rounded-lg bg-gradient-to-br from-purple-500 to-cyan-500 px-2 sm:px-4 md:px-5 py-2 sm:py-2 text-[11px] sm:text-xs md:text-sm font-semibold text-white shadow-lg hover:brightness-110 transition-all whitespace-nowrap min-h-[44px]"
         >
           <span className="hidden sm:inline">Authenticate as Operator</span>
           <span className="sm:hidden">Auth</span>

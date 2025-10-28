@@ -54,12 +54,12 @@ export default function SiteHeader() {
 
       {/* Row 1: Main Navigation Bar */}
       <div className="mx-auto w-full border-b border-primary/10">
-        <div className="mx-auto flex items-center justify-between gap-1.5 sm:gap-3 md:gap-4 px-3 sm:px-4 md:px-8 lg:px-12 py-3 sm:py-4 md:py-6">
+        <div className="mx-auto flex items-center justify-between gap-1 sm:gap-3 md:gap-4 px-2 sm:px-4 md:px-8 lg:px-12 py-3 sm:py-4 md:py-6">
           {/* Brand */}
-          <div className="flex items-center">
-            <Link href="/" className="flex items-center gap-1.5 sm:gap-2 hover:opacity-80 transition-opacity">
-              <div className="h-2.5 w-2.5 sm:h-3 sm:w-3 md:h-3.5 md:w-3.5 rounded-full bg-primary shadow-[0_0_12px_rgba(34,211,238,0.8)]" />
-              <span className="text-xl sm:text-2xl md:text-3xl lg:text-4xl leading-none font-semibold tracking-wider brand-gradient">
+          <div className="flex items-center flex-shrink min-w-0">
+            <Link href="/" className="flex items-center gap-1 sm:gap-2 hover:opacity-80 transition-opacity min-w-0">
+              <div className="h-2 w-2 sm:h-3 sm:w-3 md:h-3.5 md:w-3.5 rounded-full bg-primary shadow-[0_0_12px_rgba(34,211,238,0.8)] flex-shrink-0" />
+              <span className="text-[15px] sm:text-2xl md:text-3xl lg:text-4xl leading-none font-semibold tracking-wider brand-gradient whitespace-nowrap">
                 SOLOTTO LOTTERY
               </span>
             </Link>
@@ -73,7 +73,7 @@ export default function SiteHeader() {
           </div>
 
           {/* Right: Wallet + Operator buttons */}
-          <div className="flex items-center gap-1.5 sm:gap-2 md:gap-3">
+          <div className="flex items-center gap-1 sm:gap-2 md:gap-3 flex-shrink-0">
             <div className="shrink-0">
               <WalletConnect variant="compact" size="md" />
             </div>

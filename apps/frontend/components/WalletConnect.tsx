@@ -27,7 +27,7 @@ export function WalletConnect({ variant = "inline", size = "md" }: WalletConnect
   const wrapperClass =
     variant === "panel" ? "mt-4 flex w-full" : "flex items-center justify-end";
 
-  const compactSize = " rounded-lg px-2.5 sm:px-4 md:px-5 py-2 sm:py-2.5 text-[11px] sm:text-[13px] md:text-[15px] min-h-[44px]";
+  const compactSize = " rounded-lg px-2 sm:px-4 md:px-5 py-2 sm:py-2.5 text-[11px] sm:text-[13px] md:text-[15px] min-h-[44px]";
   const inlineSize =
     size === "xl"
       ? " rounded-lg px-7 py-3.5 text-[20px]"
