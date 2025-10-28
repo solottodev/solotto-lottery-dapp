@@ -837,7 +837,7 @@ npx prisma db seed               # Run seed script
 - [Backend README](./README.md) - API documentation
 - [Prisma Schema](./prisma/schema.prisma) - Full schema definition
 - [Migration Files](./prisma/migrations/) - Migration history
-- [Supabase Migration Guide](../../docs/SUPABASE_MIGRATION_COMPLETE.md) - Production setup
+- [Supabase Migration Guide](../../docs/ref_docs/SUPABASE_MIGRATION_COMPLETE.md) - Production setup
 
 ---
 

@@ -46,7 +46,7 @@ solotto.live branded URLs coming soon
 - 🟢 **Frontend:** Complete and tested on staging
 - 🟢 **Mainnet Launch:** Ready for deployment (October 2025)
 
-See [MAINNET_DEPLOYMENT_PLAN.md](./MAINNET_DEPLOYMENT_PLAN.md) for detailed deployment roadmap.
+See [MAINNET_DEPLOYMENT_PLAN.md](./docs/archive/zarchived_guides/MAINNET_DEPLOYMENT_PLAN.md) for detailed deployment roadmap.
 
 ## 📋 Development Status
 
@@ -61,7 +61,7 @@ See [MAINNET_DEPLOYMENT_PLAN.md](./MAINNET_DEPLOYMENT_PLAN.md) for detailed depl
 - ✅ Staging deployment successful
 - 🟢 **Ready for production deployment**
 
-See [IMPLEMENTATION_CHECKLIST.md](./IMPLEMENTATION_CHECKLIST.md) for detailed progress tracking.
+See [IMPLEMENTATION_CHECKLIST.md](./docs/archive/zarchived_guides/IMPLEMENTATION_CHECKLIST.md) for detailed progress tracking.
 
 ## 🛠️ Technology Stack
 
@@ -356,10 +356,10 @@ npm run deploy:check
 
 ### Deployment Documentation
 
-- **[READY_TO_DEPLOY.md](./READY_TO_DEPLOY.md)** - 🎯 **START HERE** - Quick deployment guide
-- **[DEPLOYMENT_CHECKLIST.md](./DEPLOYMENT_CHECKLIST.md)** - Step-by-step checklist
-- **[MAINNET_DEPLOYMENT_GUIDE.md](./MAINNET_DEPLOYMENT_GUIDE.md)** - Comprehensive deployment guide
-- **[MAINNET_DEPLOYMENT_PLAN.md](./MAINNET_DEPLOYMENT_PLAN.md)** - Full deployment plan
+- **[READY_TO_DEPLOY.md](./docs/archive/zarchived_guides/READY_TO_DEPLOY.md)** - 🎯 **START HERE** - Quick deployment guide
+- **[DEPLOYMENT_CHECKLIST.md](./docs/archive/zarchived_guides/DEPLOYMENT_CHECKLIST.md)** - Step-by-step checklist
+- **[MAINNET_DEPLOYMENT_GUIDE.md](./docs/archive/zarchived_guides/MAINNET_DEPLOYMENT_GUIDE.md)** - Comprehensive deployment guide
+- **[MAINNET_DEPLOYMENT_PLAN.md](./docs/archive/zarchived_guides/MAINNET_DEPLOYMENT_PLAN.md)** - Full deployment plan
 
 ### Deployment Timeline
 
@@ -422,7 +422,7 @@ npm run test:coverage    # Generate coverage report
 
 ### Manual Testing
 
-See [IMPLEMENTATION_CHECKLIST.md](./IMPLEMENTATION_CHECKLIST.md) for manual testing procedures.
+See [IMPLEMENTATION_CHECKLIST.md](./docs/archive/zarchived_guides/IMPLEMENTATION_CHECKLIST.md) for manual testing procedures.
 
 ## 📚 Documentation
 
@@ -433,9 +433,9 @@ See [IMPLEMENTATION_CHECKLIST.md](./IMPLEMENTATION_CHECKLIST.md) for manual test
 
 ### For Developers
 
-- **[MAINNET_DEPLOYMENT_PLAN.md](./MAINNET_DEPLOYMENT_PLAN.md)** - Complete deployment guide
-- **[IMPLEMENTATION_CHECKLIST.md](./IMPLEMENTATION_CHECKLIST.md)** - Task tracking
-- **[docs/SUPABASE_MIGRATION_COMPLETE.md](./docs/SUPABASE_MIGRATION_COMPLETE.md)** - Database setup
+- **[MAINNET_DEPLOYMENT_PLAN.md](./docs/archive/zarchived_guides/MAINNET_DEPLOYMENT_PLAN.md)** - Complete deployment guide
+- **[IMPLEMENTATION_CHECKLIST.md](./docs/archive/zarchived_guides/IMPLEMENTATION_CHECKLIST.md)** - Task tracking
+- **[SUPABASE_MIGRATION_COMPLETE.md](./docs/ref_docs/SUPABASE_MIGRATION_COMPLETE.md)** - Database setup
 
 ### Architecture Documentation
 
@@ -443,7 +443,7 @@ See [IMPLEMENTATION_CHECKLIST.md](./IMPLEMENTATION_CHECKLIST.md) for manual test
 - **[apps/backend/DATABASE_README.md](./apps/backend/DATABASE_README.md)** - Database schema & operations
 - **[apps/frontend/README.md](./apps/frontend/README.md)** - Frontend application documentation
 - **[apps/backend/README_TRANSPARENCY.md](./apps/backend/README_TRANSPARENCY.md)** - Transparency features
-- **[docs/WALLET_BASED_AUTH.md](./docs/WALLET_BASED_AUTH.md)** - Authentication design
+- **[WALLET_BASED_AUTH.md](./docs/ref_docs/WALLET_BASED_AUTH.md)** - Authentication design
 
 ### Archived Documentation
 

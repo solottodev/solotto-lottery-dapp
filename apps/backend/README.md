@@ -467,7 +467,7 @@ npm run start        # Start production server
 - **Database:** Supabase Pro
 - **Monitoring:** Sentry, UptimeRobot
 
-See [MAINNET_DEPLOYMENT_PLAN.md](../../MAINNET_DEPLOYMENT_PLAN.md) for detailed deployment guide.
+See [MAINNET_DEPLOYMENT_PLAN.md](../../docs/archive/zarchived_guides/MAINNET_DEPLOYMENT_PLAN.md) for detailed deployment guide.
 
 ## Network Configuration
 
@@ -550,8 +550,8 @@ npm run format           # Format with Prettier
 
 - [Database README](./DATABASE_README.md) - Database schema and operations
 - [Transparency Features](./README_TRANSPARENCY.md) - Public API documentation
-- [Deployment Guide](../../MAINNET_DEPLOYMENT_PLAN.md) - Production deployment
-- [Implementation Checklist](../../IMPLEMENTATION_CHECKLIST.md) - Feature tracking
+- [Deployment Guide](../../docs/archive/zarchived_guides/MAINNET_DEPLOYMENT_PLAN.md) - Production deployment
+- [Implementation Checklist](../../docs/archive/zarchived_guides/IMPLEMENTATION_CHECKLIST.md) - Feature tracking
 
 ## Support
 

@@ -466,7 +466,7 @@ vercel env add NEXT_PUBLIC_LOTTO_MINT
 - **Caching:** Dynamic routes (no-store for API proxies)
 - **Revalidation:** Disabled for real-time data
 
-See [MAINNET_DEPLOYMENT_PLAN.md](../../MAINNET_DEPLOYMENT_PLAN.md) for detailed deployment guide.
+See [MAINNET_DEPLOYMENT_PLAN.md](../../docs/archive/zarchived_guides/MAINNET_DEPLOYMENT_PLAN.md) for detailed deployment guide.
 
 ## Pages & Routes
 
@@ -589,8 +589,8 @@ npx tsc --noEmit         # Check TypeScript errors
 
 - [Backend README](../backend/README.md) - Backend API documentation
 - [Database README](../backend/DATABASE_README.md) - Database schema
-- [Deployment Guide](../../MAINNET_DEPLOYMENT_PLAN.md) - Production deployment
-- [Implementation Checklist](../../IMPLEMENTATION_CHECKLIST.md) - Feature tracking
+- [Deployment Guide](../../docs/archive/zarchived_guides/MAINNET_DEPLOYMENT_PLAN.md) - Production deployment
+- [Implementation Checklist](../../docs/archive/zarchived_guides/IMPLEMENTATION_CHECKLIST.md) - Feature tracking
 
 ## Support
 
