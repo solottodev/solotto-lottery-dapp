@@ -14,6 +14,7 @@ const footerLinks = [
   {
     heading: "Get in Touch",
     links: [
+      { label: "SolottoDev@gmail.com", href: "mailto:SolottoDev@gmail.com" },
       { label: "SolottoOnSol@gmail.com", href: "mailto:SolottoOnSol@gmail.com" },
     ],
   },
@@ -29,6 +30,11 @@ const socialLinks = [
     label: "Solotto on Telegram",
     href: "https://t.me/+_F9sVPy3WG4zNTZh",
     icon: Send,
+  },
+  {
+    label: "Email Solotto Dev",
+    href: "mailto:SolottoDev@gmail.com",
+    icon: Mail,
   },
   {
     label: "Email Solotto",
