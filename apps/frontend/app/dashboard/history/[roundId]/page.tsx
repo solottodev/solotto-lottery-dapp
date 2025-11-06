@@ -199,7 +199,9 @@ export default function HistoryDetailPage() {
               const tierKey = tier as 't1' | 't2' | 't3' | 't4'
               const winner = round.tierWinners[tierKey]
               const payout = round.tierPayouts[tierKey]
-              const txSig = audit?.txSignatures?.[idx]
+              // Use the first available transaction signature if winner exists
+              // Distribution typically uses one transaction for all payouts
+              const txSig = winner && audit?.txSignatures?.[0] ? audit.txSignatures[0] : null
 
               return (
                 <div key={tier} className="rounded-lg border border-primary/10 bg-night-800/40 p-3 sm:p-4">
@@ -213,9 +215,9 @@ export default function HistoryDetailPage() {
                       <span className="text-slate-400">Payout: </span>
                       <span className="text-primary font-semibold">{payout ? `${payout} SOL` : '—'}</span>
                     </div>
-                    {winner && txSig && (
-                      <div>
-                        <span className="text-slate-400">Transaction: </span>
+                    <div>
+                      <span className="text-slate-400">Transaction: </span>
+                      {txSig ? (
                         <a
                           href={getSolscanUrl(txSig, round.network)}
                           target="_blank"
@@ -224,8 +226,10 @@ export default function HistoryDetailPage() {
                         >
                           {txSig.slice(0, 8)}...{txSig.slice(-8)}
                         </a>
-                      </div>
-                    )}
+                      ) : (
+                        <span className="text-slate-500">N/A</span>
+                      )}
+                    </div>
                   </div>
                 </div>
               )
