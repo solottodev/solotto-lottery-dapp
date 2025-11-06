@@ -213,7 +213,7 @@ export default function HistoryDetailPage() {
                       <span className="text-slate-400">Payout: </span>
                       <span className="text-primary font-semibold">{payout ? `${payout} SOL` : '—'}</span>
                     </div>
-                    {txSig && (
+                    {winner && txSig && (
                       <div>
                         <span className="text-slate-400">Transaction: </span>
                         <a
