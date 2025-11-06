@@ -105,7 +105,16 @@ export default function HistoryLookup() {
       const res = await fetch(`/api/history/wallet?address=${encodeURIComponent(address)}`)
       if (!res.ok) throw new Error('Failed to fetch wallet data')
       const data = await res.json()
-      setLookup(data.entries || [])
+      // Map the backend response to match our Entry type (Round -> round)
+      const mappedEntries = (data.entries || []).map((entry: any) => ({
+        ...entry,
+        round: entry.Round ? {
+          id: entry.Round.id,
+          drawingDate: entry.Round.drawingDate,
+          network: entry.Round.network,
+        } : undefined,
+      }))
+      setLookup(mappedEntries)
     } catch (e) {
       setSearchError(e instanceof Error ? e.message : 'Unknown error occurred')
       setLookup([])
@@ -122,7 +131,16 @@ export default function HistoryLookup() {
       try {
         const res = await fetch(`/api/history/search?q=${encodeURIComponent(q)}&page=1&size=25`)
         const data = await res.json()
-        setLookup(data.entries || null)
+        // Map the backend response to match our Entry type (Round -> round)
+        const mappedEntries = (data.entries || []).map((entry: any) => ({
+          ...entry,
+          round: entry.Round ? {
+            id: entry.Round.id,
+            drawingDate: entry.Round.drawingDate,
+            network: entry.Round.network,
+          } : undefined,
+        }))
+        setLookup(mappedEntries || null)
       } finally {
         setSearching(false)
       }
