@@ -169,85 +169,81 @@ export const ControlForm = () => {
 
   return (
     <section className="rounded-3xl border border-primary/20 bg-night-900/60 p-4 sm:p-6 shadow-panel">
-      <form onSubmit={form.handleSubmit(onSubmit, onInvalid)} className="mt-4 grid gap-4 sm:gap-5">
-        {/* Start Date */}
-        <div className="grid items-start sm:items-center gap-2 sm:grid-cols-[200px,1fr] lg:grid-cols-[260px,1fr]">
-          <Label htmlFor="startDate" className="text-slate-300 text-xs md:text-sm">Start Date</Label>
-          <div>
-            <Controller
-              control={form.control}
-              name="startDate"
-              render={({ field }) => (
-                <DateTimePicker value={field.value} onChange={field.onChange} className="h-8 w-full px-2.5 py-1.5 text-[10px] md:text-[12px]" />
+      <form onSubmit={form.handleSubmit(onSubmit, onInvalid)} className="mt-4 space-y-4">
+        <div className="grid gap-4 md:grid-cols-2">
+          {/* Start Date */}
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="startDate" className="text-slate-300 text-xs md:text-sm">Start Date</Label>
+            <div className="min-w-0">
+              <Controller
+                control={form.control}
+                name="startDate"
+                render={({ field }) => (
+                  <DateTimePicker value={field.value} onChange={field.onChange} className="h-10 w-full px-3 text-[11px] md:text-[13px]" />
+                )}
+              />
+              {form.formState.errors.startDate && (
+                <p className="mt-1 text-red-400 text-xs sm:text-sm">{form.formState.errors.startDate.message}</p>
               )}
-            />
-            {form.formState.errors.startDate && (
-              <p className="mt-1 text-red-400 text-xs sm:text-sm">{form.formState.errors.startDate.message}</p>
-            )}
+            </div>
           </div>
-        </div>
 
-        {/* End Date */}
-        <div className="grid items-start sm:items-center gap-2 sm:grid-cols-[200px,1fr] lg:grid-cols-[260px,1fr]">
-          <Label htmlFor="endDate" className="text-slate-300 text-xs md:text-sm">End Date</Label>
-          <div>
-            <Controller
-              control={form.control}
-              name="endDate"
-              render={({ field }) => (
-                <DateTimePicker value={field.value} onChange={field.onChange} className="h-8 w-full px-2.5 py-1.5 text-[10px] md:text-[12px]" />
+          {/* End Date */}
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="endDate" className="text-slate-300 text-xs md:text-sm">End Date</Label>
+            <div className="min-w-0">
+              <Controller
+                control={form.control}
+                name="endDate"
+                render={({ field }) => (
+                  <DateTimePicker value={field.value} onChange={field.onChange} className="h-10 w-full px-3 text-[11px] md:text-[13px]" />
+                )}
+              />
+              {form.formState.errors.endDate && (
+                <p className="mt-1 text-red-400 text-xs sm:text-sm">{form.formState.errors.endDate.message}</p>
               )}
-            />
-            {form.formState.errors.endDate && (
-              <p className="mt-1 text-red-400 text-xs sm:text-sm">{form.formState.errors.endDate.message}</p>
-            )}
+            </div>
           </div>
-        </div>
 
-        {/* Trade Threshold (%) */}
-        <div className="grid items-start sm:items-center gap-2 sm:grid-cols-[200px,1fr] lg:grid-cols-[260px,1fr]">
-          <Label htmlFor="tradeThresholdPercent" className="text-slate-300 text-xs md:text-sm">Trade Threshold (%)</Label>
-          <div>
+          {/* Trade Threshold (%) */}
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="tradeThresholdPercent" className="text-slate-300 text-xs md:text-sm">Trade Threshold (%)</Label>
             <Input
               id="tradeThresholdPercent"
-              className="w-full rounded-lg border border-primary/20 bg-night-800 px-2.5 py-1.5 text-[10px] md:text-[12px] text-white placeholder:text-slate-500"
+              className="w-full rounded-lg border border-primary/20 bg-night-800 px-3 py-2 text-[11px] md:text-[13px] text-white placeholder:text-slate-500"
               type="number"
               step="0.01"
               {...form.register('tradeThresholdPercent', { valueAsNumber: true })}
             />
             {form.formState.errors.tradeThresholdPercent && (
-              <p className="mt-1 text-red-400 text-xs sm:text-sm">{form.formState.errors.tradeThresholdPercent.message}</p>
+              <p className="text-red-400 text-xs sm:text-sm">{form.formState.errors.tradeThresholdPercent.message}</p>
             )}
           </div>
-        </div>
 
-        {/* Prize Distribution (%) */}
-        <div className="grid items-start sm:items-center gap-2 sm:grid-cols-[200px,1fr] lg:grid-cols-[260px,1fr]">
-          <Label htmlFor="prizeDistributionPercent" className="text-slate-300 text-xs md:text-sm">Prize Distribution (%)</Label>
-          <div>
+          {/* Prize Distribution (%) */}
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="prizeDistributionPercent" className="text-slate-300 text-xs md:text-sm">Prize Distribution (%)</Label>
             <Input
               id="prizeDistributionPercent"
-              className="w-full rounded-lg border border-primary/20 bg-night-800 px-2.5 py-1.5 text-[10px] md:text-[12px] text-white placeholder:text-slate-500"
+              className="w-full rounded-lg border border-primary/20 bg-night-800 px-3 py-2 text-[11px] md:text-[13px] text-white placeholder:text-slate-500"
               type="number"
               step="0.01"
               {...form.register('prizeDistributionPercent', { valueAsNumber: true })}
             />
             {form.formState.errors.prizeDistributionPercent && (
-              <p className="mt-1 text-red-400 text-xs sm:text-sm">{form.formState.errors.prizeDistributionPercent.message}</p>
+              <p className="text-red-400 text-xs sm:text-sm">{form.formState.errors.prizeDistributionPercent.message}</p>
             )}
           </div>
-        </div>
 
-        {/* 🆕 LOTTO Price (USD) */}
-        <div className="grid items-start sm:items-center gap-2 sm:grid-cols-[200px,1fr] lg:grid-cols-[260px,1fr]">
-          <Label htmlFor="lottoUsdPrice" className="text-slate-300 text-xs md:text-sm">
-            LOTTO Price (USD)
-          </Label>
-          <div>
-            <div className="flex gap-2">
+          {/* ?? LOTTO Price (USD) */}
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="lottoUsdPrice" className="text-slate-300 text-xs md:text-sm">
+              LOTTO Price (USD)
+            </Label>
+            <div className="flex flex-col sm:flex-row flex-wrap gap-2">
               <Input
                 id="lottoUsdPrice"
-                className="flex-1 rounded-lg border border-primary/20 bg-night-800 px-2.5 py-1.5 text-[10px] md:text-[12px] text-white placeholder:text-slate-500"
+                className="flex-1 min-w-0 rounded-lg border border-primary/20 bg-night-800 px-3 py-2 text-[11px] md:text-[13px] text-white placeholder:text-slate-500"
                 type="number"
                 step="0.00000001"
                 placeholder="0.00014104"
@@ -257,22 +253,22 @@ export const ControlForm = () => {
                 type="button"
                 onClick={handleFetchPrice}
                 disabled={isFetchingPrice || !jwt}
-                className="whitespace-nowrap rounded-lg bg-primary/20 px-3 py-1.5 text-[10px] md:text-[12px] font-semibold text-white hover:bg-primary/30 disabled:opacity-50"
+                className="w-full sm:w-auto rounded-lg bg-primary/20 px-3 py-2 text-[11px] md:text-[13px] font-semibold text-white hover:bg-primary/30 disabled:opacity-50"
               >
                 {isFetchingPrice ? 'Fetching...' : 'Fetch Price'}
               </Button>
             </div>
             {form.formState.errors.lottoUsdPrice && (
-              <p className="mt-1 text-red-400 text-xs sm:text-sm">
+              <p className="text-red-400 text-xs sm:text-sm">
                 {form.formState.errors.lottoUsdPrice.message}
               </p>
             )}
             {priceFetchError && (
-              <p className="mt-1 text-red-400 text-xs sm:text-sm">
+              <p className="text-red-400 text-xs sm:text-sm">
                 {priceFetchError}
               </p>
             )}
-            <p className="mt-1 text-slate-400 text-[10px]">
+            <p className="text-slate-400 text-[10px]">
               Click &quot;Fetch Price&quot; to auto-fill from CoinGecko, or enter manually from{' '}
               <a
                 href={`https://solscan.io/token/${process.env.NEXT_PUBLIC_LOTTO_MINT || 'HJSnJaQv3u4ZyvPXiQPTyBsYJpggWsZvVH8yedjBpump'}`}
@@ -285,39 +281,35 @@ export const ControlForm = () => {
               .
             </p>
           </div>
-        </div>
 
-        {/* Slippage Tolerance (%) */}
-        <div className="grid items-start sm:items-center gap-2 sm:grid-cols-[200px,1fr] lg:grid-cols-[260px,1fr]">
-          <Label htmlFor="slippageTolerancePercent" className="text-slate-300 text-xs md:text-sm">Slippage Tolerance (%)</Label>
-          <div>
+          {/* Slippage Tolerance (%) */}
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="slippageTolerancePercent" className="text-slate-300 text-xs md:text-sm">Slippage Tolerance (%)</Label>
             <Input
               id="slippageTolerancePercent"
-              className="w-full rounded-lg border border-primary/20 bg-night-800 px-2.5 py-1.5 text-[10px] md:text-[12px] text-white placeholder:text-slate-500"
+              className="w-full rounded-lg border border-primary/20 bg-night-800 px-3 py-2 text-[11px] md:text-[13px] text-white placeholder:text-slate-500"
               type="number"
               step="0.01"
               {...form.register('slippageTolerancePercent', { valueAsNumber: true })}
             />
             {form.formState.errors.slippageTolerancePercent && (
-              <p className="mt-1 text-red-400 text-xs sm:text-sm">{form.formState.errors.slippageTolerancePercent.message}</p>
+              <p className="text-red-400 text-xs sm:text-sm">{form.formState.errors.slippageTolerancePercent.message}</p>
             )}
           </div>
         </div>
 
         {/* Blacklisted Wallets */}
-        <div className="grid items-start gap-2 sm:grid-cols-[200px,1fr] lg:grid-cols-[260px,1fr]">
-          <Label htmlFor="blacklistedWallets" className="mt-1 text-slate-300 text-xs md:text-sm">Blacklisted Wallets (optional)</Label>
-          <div>
-            <Textarea
-              id="blacklistedWallets"
-              className="w-full min-h-[60px] sm:min-h-[80px] rounded-lg border border-primary/20 bg-night-800 px-2.5 py-1.5 text-[10px] md:text-[12px] text-white placeholder:text-slate-500"
-              placeholder="Enter comma-separated wallet addresses"
-              {...form.register('blacklistedWallets')}
-            />
-            {form.formState.errors.blacklistedWallets && (
-              <p className="mt-1 text-red-400 text-xs sm:text-sm">{form.formState.errors.blacklistedWallets.message}</p>
-            )}
-          </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="blacklistedWallets" className="text-slate-300 text-xs md:text-sm">Blacklisted Wallets (optional)</Label>
+          <Textarea
+            id="blacklistedWallets"
+            className="w-full min-h-[80px] rounded-lg border border-primary/20 bg-night-800 px-3 py-2 text-[11px] md:text-[13px] text-white placeholder:text-slate-500"
+            placeholder="Enter comma-separated wallet addresses"
+            {...form.register('blacklistedWallets')}
+          />
+          {form.formState.errors.blacklistedWallets && (
+            <p className="text-red-400 text-xs sm:text-sm">{form.formState.errors.blacklistedWallets.message}</p>
+          )}
         </div>
 
         <div className="pt-2">
@@ -358,4 +350,3 @@ export const ControlForm = () => {
 }
 
 export default ControlForm;
-
