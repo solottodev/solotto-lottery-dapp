@@ -8,6 +8,7 @@ const footerLinks = [
       { label: "Solotto $LOTTO Project Site", href: "https://solotto.live" },
       { label: "Lottery History", href: "https://solotto-lottery-dapp-frontend.vercel.app/dashboard/history" },
       { label: "Transparency", href: "https://solotto-lottery-dapp-frontend.vercel.app/transparency" },
+      { label: "Solotto dLOS Whitepaper", href: "https://github.com/solottodev/solotto-lottery-dapp/blob/main/SOLOTTO_DLOS_WHITEPAPER.md" },
       { label: "Legal", href: "https://solotto.live/legal" },
     ],
   },
