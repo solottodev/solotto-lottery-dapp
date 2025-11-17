@@ -6,25 +6,15 @@ const globalForPrisma = globalThis as unknown as {
 
 // Connection pool configuration for Supabase
 // Supabase Pro tier allows 15 connections per pooler (session mode)
-// We use 5 conservative connections per Render instance to prevent exhaustion
-// This leaves headroom for:
-// - Multiple Render instances (if scaling up)
-// - Direct database connections
-// - Migration tools
-// - Other services
-const POOL_SIZE = 5;
-const POOL_TIMEOUT = 20; // seconds
-
-// Build connection URL with pool parameters
+// Pool parameters are configured in DATABASE_URL environment variable
+// This function preserves all existing URL parameters (especially pgbouncer=true)
 function getDatabaseUrlWithPool() {
   const baseUrl = process.env.DATABASE_URL;
   if (!baseUrl) throw new Error('DATABASE_URL is not defined');
 
-  const url = new URL(baseUrl);
-  url.searchParams.set('connection_limit', POOL_SIZE.toString());
-  url.searchParams.set('pool_timeout', POOL_TIMEOUT.toString());
-
-  return url.toString();
+  // Simply return the DATABASE_URL as-is to preserve all parameters
+  // including pgbouncer=true, connection_limit, pool_timeout, etc.
+  return baseUrl;
 }
 
 export const prisma =
