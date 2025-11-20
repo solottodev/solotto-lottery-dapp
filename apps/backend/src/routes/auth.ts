@@ -1,13 +1,12 @@
 import { Router } from "express";
-import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import speakeasy from "speakeasy";
 import qrcode from "qrcode";
 import { issueJwt, verifyJwt } from "../utils/jwt";
 import { verifySignature } from "../utils/solana";
+import prisma from "../prisma";
 
 const router = Router();
-const prisma = new PrismaClient();
 
 /**
  * POST /auth/register
