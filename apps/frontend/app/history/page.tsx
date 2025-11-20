@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from 'react'
+import HistoryDashboard from '@/components/HistoryDashboard'
 
 type Round = {
   id: string
@@ -12,6 +13,8 @@ type Round = {
   totalParticipants: number
   eligibleParticipants: number
   tierWinners: Record<string, string>
+  snapshotStartedAt?: string
+  snapshotCompletedAt?: string
 }
 
 // Helper function to format tier display
@@ -66,6 +69,12 @@ export default function PublicHistoryPage() {
     <main className="mx-auto max-w-5xl px-6 py-10 text-white">
       <h1 className="text-2xl font-semibold text-primary">Lottery History</h1>
       <p className="text-slate-300">Public view. Enter a wallet to see associated entries and wins.</p>
+
+      {/* Data Visualizations Dashboard */}
+      <div className="mt-8">
+        <h2 className="text-xl font-semibold text-primary mb-4">Analytics Dashboard</h2>
+        <HistoryDashboard rounds={rounds} />
+      </div>
 
       <div className="mt-6 rounded-2xl border border-primary/20 bg-night-900/60 p-4">
         <div className="flex flex-wrap items-center gap-2">

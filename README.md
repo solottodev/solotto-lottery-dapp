@@ -4,6 +4,8 @@
 
 This is the full-stack monorepo for the Solotto on-chain lottery system on Solana.
 
+![Solotto dLOS Dashboard](<images/Solotto dLOS homepage.png>)
+
 ## 🎰 What is Solotto?
 
 Solotto is a provably fair, on-chain lottery platform built on Solana. It enables transparent, automated lottery drawings where winners are selected using cryptographically secure randomness with full blockchain audit trails.
@@ -20,6 +22,9 @@ Solotto is a provably fair, on-chain lottery platform built on Solana. It enable
 - ✅ **RPC Failover** - Automatic failover from Alchemy to public RPC
 - ✅ **Session Persistence** - Workflow state restoration on page refresh
 - ✅ **CSV Export** - Participant and distribution data export
+- ✅ **Analytics Dashboard** - Visualization of historical drawing and participant data
+
+![Solotto dLOS Analytics Dashboard](<images/Solotto dLOS Analytics Dashboard.png>)
 
 ## 🚀 Mainnet Information
 

@@ -100,10 +100,35 @@ router.get('/rounds', async (req, res) => {
           { createdAt: 'desc' }
         ],
         skip,
-        take: size
+        take: size,
+        include: {
+          Snapshot: {
+            orderBy: { createdAt: 'desc' },
+            take: 1
+          }
+        }
       }),
     ])
-    return res.json({ rounds, meta: { page, size, total, pages: Math.ceil(total / size) } })
+
+    // Format rounds with snapshot data
+    const formattedRounds = rounds.map((round: any) => {
+      const snapshot = round.Snapshot?.[0]
+      return {
+        id: round.id,
+        startDate: round.startDate,
+        endDate: round.endDate,
+        drawingDate: round.drawingDate,
+        distributionDate: round.distributionDate,
+        prizePoolSol: round.prizePoolSol,
+        totalParticipants: round.totalParticipants,
+        eligibleParticipants: round.eligibleParticipants,
+        tierWinners: round.tierWinners,
+        snapshotStartedAt: snapshot?.startedAt,
+        snapshotCompletedAt: snapshot?.completedAt
+      }
+    })
+
+    return res.json({ rounds: formattedRounds, meta: { page, size, total, pages: Math.ceil(total / size) } })
   } catch (e) {
     console.error('GET /history/rounds failed', e)
     return res.status(500).json({ error: 'Internal server error' })
