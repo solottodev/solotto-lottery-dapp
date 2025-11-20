@@ -77,7 +77,12 @@ export default function HistoryDashboard({ rounds }: HistoryDashboardProps) {
     return rounds
       .slice()
       .reverse()
-      .filter(round => round.snapshotStartedAt && round.snapshotCompletedAt && round.drawingDate && round.distributionDate)
+      .filter(round => {
+        // Include round if it has at least one complete timing metric
+        const hasSnapshotData = round.snapshotStartedAt && round.snapshotCompletedAt
+        const hasDistributionData = round.drawingDate && round.distributionDate
+        return hasSnapshotData || hasDistributionData
+      })
       .map(round => {
         const snapshotDuration = round.snapshotStartedAt && round.snapshotCompletedAt
           ? (new Date(round.snapshotCompletedAt).getTime() - new Date(round.snapshotStartedAt).getTime()) / 1000 / 60
