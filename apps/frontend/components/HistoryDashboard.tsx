@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import {
   PieChart,
   Pie,
@@ -47,6 +47,61 @@ const COLORS = {
 }
 
 export default function HistoryDashboard({ rounds }: HistoryDashboardProps) {
+  // Metric Cards Data - fetch from API to match homepage
+  const [stats, setStats] = useState({
+    totalRounds: 0,
+    totalSolDistributed: 0,
+    totalWinners: 0,
+    avgPrizePool: 0
+  })
+
+  useEffect(() => {
+    fetch('/api/dashboard-stats')
+      .then(r => r.json())
+      .then(data => {
+        setStats({
+          totalRounds: data.totalRounds || 0,
+          totalSolDistributed: data.totalSolDistributed || 0,
+          totalWinners: data.totalWinners || 0,
+          avgPrizePool: data.avgPrizePool || 0
+        })
+      })
+      .catch(() => {})
+  }, [])
+
+  const metricCards = useMemo(() => {
+    return [
+      {
+        label: 'Total Lottery Rounds',
+        value: stats.totalRounds.toString(),
+        detail: 'since automation',
+        gradient: 'from-primary/20 to-primary/5',
+        borderColor: 'border-primary/30'
+      },
+      {
+        label: 'Total SOL Distributed',
+        value: stats.totalSolDistributed.toFixed(2),
+        detail: 'aggregate payouts',
+        gradient: 'from-primary/20 to-primary/5',
+        borderColor: 'border-primary/30'
+      },
+      {
+        label: 'Total Winners',
+        value: stats.totalWinners.toString(),
+        detail: 'across all tiers',
+        gradient: 'from-primary/20 to-primary/5',
+        borderColor: 'border-primary/30'
+      },
+      {
+        label: 'Avg Prize Pool (SOL)',
+        value: stats.avgPrizePool.toFixed(2),
+        detail: 'per drawing',
+        gradient: 'from-primary/20 to-primary/5',
+        borderColor: 'border-primary/30'
+      }
+    ]
+  }, [stats])
+
   // 1. Pie Chart Data: Last Round Participation
   const participationData = useMemo(() => {
     if (rounds.length === 0) return []
@@ -125,6 +180,28 @@ export default function HistoryDashboard({ rounds }: HistoryDashboardProps) {
 
   return (
     <div className="space-y-6">
+      {/* Title and Metric Cards Row */}
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        {/* Analytics Dashboard Title */}
+        <h2 className="text-4xl sm:text-5xl font-bold text-primary">Analytics Dashboard</h2>
+
+        {/* Metric Cards */}
+        <div className="flex flex-wrap gap-2 sm:gap-3">
+          {metricCards.map((card) => (
+            <div
+              key={card.label}
+              className={`rounded-lg border ${card.borderColor} bg-gradient-to-br ${card.gradient} px-4 py-2.5 text-center shadow-md backdrop-blur-sm hover:shadow-lg transition-all duration-300 min-w-[140px] sm:min-w-[160px]`}
+            >
+              <p className="text-lg sm:text-xl font-bold bg-gradient-to-br from-primary via-accent to-secondary bg-clip-text text-transparent">
+                {card.value}
+              </p>
+              <p className="mt-1 text-[10px] sm:text-xs font-semibold text-slate-200">{card.label}</p>
+              <p className="text-[8px] sm:text-[9px] uppercase tracking-wide text-slate-400">{card.detail}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* 1. Pie Chart: Participation Breakdown */}
         <div className="rounded-2xl border border-primary/20 bg-night-900/60 p-6">

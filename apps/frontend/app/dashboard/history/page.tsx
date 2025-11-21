@@ -37,7 +37,6 @@ export default function HistoryPage() {
 
         {/* Analytics Dashboard */}
         <div className="rounded-2xl sm:rounded-3xl border border-primary/20 bg-night-900/60 p-4 sm:p-5 md:p-6 shadow-panel">
-          <h3 className="text-lg sm:text-xl md:text-2xl font-semibold text-primary mb-4 sm:mb-6">Analytics Dashboard</h3>
           <HistoryDashboard rounds={rounds} />
         </div>
 

@@ -72,7 +72,6 @@ export default function PublicHistoryPage() {
 
       {/* Data Visualizations Dashboard */}
       <div className="mt-8">
-        <h2 className="text-xl font-semibold text-primary mb-4">Analytics Dashboard</h2>
         <HistoryDashboard rounds={rounds} />
       </div>
 

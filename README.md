@@ -24,7 +24,7 @@ Solotto is a provably fair, on-chain lottery platform built on Solana. It enable
 - ✅ **CSV Export** - Participant and distribution data export
 - ✅ **Analytics Dashboard** - Visualization of historical drawing and participant data
 
-![Solotto dLOS Analytics Dashboard](<images/Solotto dLOS Analytics Dashboard.png>)
+![Solotto dLOS Analytics Dashboard](<images/Solotto dLOS Analytics Dashboard2.png>)
 
 ## 🚀 Mainnet Information
 
